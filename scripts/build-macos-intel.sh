@@ -22,12 +22,12 @@ python3.12 -m venv .build/voice-macos-env
 .build/voice-macos-env/bin/python -m pip install -r voice/requirements-macos-intel.txt
 .build/voice-macos-env/bin/python voice/patch_faster_whisper.py
 .build/voice-macos-env/bin/python -m unittest discover -s voice -p 'test_*.py'
-voice_signing=()
+voice_options=(--target-architecture x86_64)
 if [[ -n "${APPLE_SIGNING_IDENTITY:-}" && "$APPLE_SIGNING_IDENTITY" != '-' ]]; then
-  voice_signing=(--codesign-identity "$APPLE_SIGNING_IDENTITY" --osx-entitlements-file src-tauri/Entitlements.plist)
+  voice_options+=(--codesign-identity "$APPLE_SIGNING_IDENTITY" --osx-entitlements-file src-tauri/Entitlements.plist)
 fi
 .build/voice-macos-env/bin/python -m PyInstaller --noconfirm --onedir --console \
-  --target-architecture x86_64 "${voice_signing[@]}" \
+  "${voice_options[@]}" \
   --name voice-worker --distpath .build/voice-macos-dist --workpath .build/voice-macos-work --specpath .build \
   --collect-all faster_whisper --collect-all piper --collect-all ctranslate2 \
   --collect-all onnxruntime --collect-all sounddevice --collect-all _sounddevice_data --collect-all tokenizers --collect-all pywebrtc_audio \

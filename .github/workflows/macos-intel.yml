@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: intel-macos-${{ github.ref }}
@@ -64,6 +64,10 @@ jobs:
           fi
       - name: Provision pinned offline resources
         run: python3.12 scripts/provision-macos-build.py
+      - uses: actions/cache@v4
+        with:
+          path: src-tauri/target
+          key: intel-macos-15-rust-${{ hashFiles('src-tauri/Cargo.lock') }}
       - name: Build native application and DMG
         run: bash scripts/build-macos-intel.sh
       - name: Verify packaged Intel resources and offline helpers
@@ -73,7 +77,12 @@ jobs:
           INVENTORY_AI_RESOURCE_DIR: ${{ github.workspace }}/.build/macos-resources/ai
           INVENTORY_AI_EVAL_OUTPUT: ${{ github.workspace }}/.build/MACOS-AI-ACCEPTANCE.json
         run: cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml independent_assistant_acceptance -- --ignored --nocapture
+      - name: Publish verified installer download fallback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3.12 scripts/publish-macos-release.py
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: Inventory-Manager-Intel-macOS
           path: |
