@@ -19,11 +19,13 @@ if stage.exists():
 source = ROOT / "src-tauri/resources"
 
 def copy_model(source_path, destination):
+    destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     try:
         destination.hardlink_to(source_path)
     except OSError:
         shutil.copy2(source_path, destination)
+    return str(destination)
 
 ai = stage / "ai"
 ai.mkdir(parents=True, exist_ok=True)

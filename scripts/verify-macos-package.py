@@ -52,6 +52,8 @@ try:
     lines = [json.loads(line) for line in worker.stdout.splitlines() if line.startswith("{")]
     assert any(line.get("ready") is True for line in lines), worker.stderr[-6000:]
     report["mounted_dmg_voice_worker_initialized"] = True
+    subprocess.run(["python3.12", str(root / "scripts/smoke-macos-app.py"), str(app)], check=True)
+    report["mounted_app_automatic_ai_startup_and_shutdown"] = True
     report["passed"] = True
 finally:
     subprocess.run(["hdiutil", "detach", str(mount)], check=False)

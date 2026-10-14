@@ -92,7 +92,7 @@ else:
     manifest_path = root / ".build/INSTALLER-PARTS.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     upload_file(manifest_path)
-for name in ("MACOS-PACKAGE-VERIFICATION.json", "MACOS-AI-ACCEPTANCE.json", "MACOS-SPEECH-SMOKE.json", "MACOS-SHA256SUMS.txt"):
+for name in ("MACOS-PACKAGE-VERIFICATION.json", "MACOS-AI-ACCEPTANCE.json", "MACOS-SPEECH-SMOKE.json", "MACOS-APP-SMOKE.json", "MACOS-SHA256SUMS.txt"):
     upload_file(root / ".build" / name)
 api(f"releases/{release['id']}", {"draft": False}, "PATCH")
 print(f"Verified installer release: {release['html_url']}")

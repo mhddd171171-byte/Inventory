@@ -62,12 +62,19 @@ jobs:
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/build.keychain-db"
             security list-keychains -d user -s "$RUNNER_TEMP/build.keychain-db" login.keychain-db
           fi
-      - name: Provision pinned offline resources
-        run: python3.12 scripts/provision-macos-build.py
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: native-cache
         with:
-          path: src-tauri/target
-          key: intel-macos-15-rust-${{ hashFiles('src-tauri/Cargo.lock') }}
+          path: |
+            src-tauri/resources/ai/*.gguf
+            src-tauri/resources/voice/stt
+            src-tauri/resources/voice/tts
+            .build/llama-macos
+            src-tauri/target
+          key: intel-macos-native-b11554-${{ hashFiles('voice/model-files.json', 'scripts/build-macos-intel.sh', 'src-tauri/Cargo.lock') }}
+      - name: Provision pinned offline resources
+        id: provision
+        run: python3.12 scripts/provision-macos-build.py
       - name: Build native application and DMG
         run: bash scripts/build-macos-intel.sh
       - name: Verify packaged Intel resources and offline helpers
@@ -91,9 +98,11 @@ jobs:
             .build/MACOS-SHA256SUMS.txt
             .build/MACOS-AI-ACCEPTANCE.json
             .build/MACOS-SPEECH-SMOKE.json
+            .build/MACOS-APP-SMOKE.json
           compression-level: 0
           if-no-files-found: error
           retention-days: 14
+          include-hidden-files: true
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -102,4 +111,17 @@ jobs:
             .build/voice-macos-work/voice-worker/warn-voice-worker.txt
             .build/MACOS-PACKAGE-VERIFICATION.json
             .build/MACOS-AI-ACCEPTANCE.json
+            .build/MACOS-APP-SMOKE.json
+            .build/mac-app-stderr.log
           if-no-files-found: ignore
+          include-hidden-files: true
+      - uses: actions/cache/save@v4
+        if: always() && steps.provision.outcome == 'success' && steps.native-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            src-tauri/resources/ai/*.gguf
+            src-tauri/resources/voice/stt
+            src-tauri/resources/voice/tts
+            .build/llama-macos
+            src-tauri/target
+          key: intel-macos-native-b11554-${{ hashFiles('voice/model-files.json', 'scripts/build-macos-intel.sh', 'src-tauri/Cargo.lock') }}
