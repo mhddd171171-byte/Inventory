@@ -1,0 +1,10 @@
+{
+  "name": "string.prototype.trimstart",
+  "version": "1.0.8",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/es-shims/String.prototype.trimStart.git"
+  },
+  "homepage": null
+}

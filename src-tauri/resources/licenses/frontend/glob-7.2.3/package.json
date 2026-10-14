@@ -1,0 +1,10 @@
+{
+  "name": "glob",
+  "version": "7.2.3",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/isaacs/node-glob.git"
+  },
+  "homepage": null
+}

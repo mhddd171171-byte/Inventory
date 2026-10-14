@@ -1,0 +1,96 @@
+name: Offline Intel macOS installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intel-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 120
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      PIP_NO_CACHE_DIR: '1'
+      CARGO_INCREMENTAL: '0'
+      # Use ad-hoc signing when no Developer ID identity is configured.
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Intel host
+        run: |
+          test "$(uname -m)" = x86_64
+          sw_vers
+          df -h .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Prepare native toolchain
+        run: |
+          if ! command -v rustup >/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          if ! command -v cmake >/dev/null; then brew install cmake; fi
+      - name: Import optional Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+            echo "::add-mask::$KEYCHAIN_PASSWORD"
+            printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/build.keychain-db"
+            security set-keychain-settings -lut 21600 "$RUNNER_TEMP/build.keychain-db"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/build.keychain-db"
+            security import "$RUNNER_TEMP/certificate.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$RUNNER_TEMP/build.keychain-db"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/build.keychain-db"
+            security list-keychains -d user -s "$RUNNER_TEMP/build.keychain-db" login.keychain-db
+          fi
+      - name: Provision pinned offline resources
+        run: python3.12 scripts/provision-macos-build.py
+      - name: Build native application and DMG
+        run: bash scripts/build-macos-intel.sh
+      - name: Verify packaged Intel resources and offline helpers
+        run: python3.12 scripts/verify-macos-package.py
+      - name: Evaluate bilingual conversations with the packaged native model
+        env:
+          INVENTORY_AI_RESOURCE_DIR: ${{ github.workspace }}/.build/macos-resources/ai
+          INVENTORY_AI_EVAL_OUTPUT: ${{ github.workspace }}/.build/MACOS-AI-ACCEPTANCE.json
+        run: cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml independent_assistant_acceptance -- --ignored --nocapture
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Inventory-Manager-Intel-macOS
+          path: |
+            src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+            .build/MACOS-PACKAGE-VERIFICATION.json
+            .build/MACOS-SHA256SUMS.txt
+            .build/MACOS-AI-ACCEPTANCE.json
+            .build/MACOS-SPEECH-SMOKE.json
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: Intel-macOS-build-diagnostics
+          path: |
+            .build/voice-macos-work/voice-worker/warn-voice-worker.txt
+            .build/MACOS-PACKAGE-VERIFICATION.json
+            .build/MACOS-AI-ACCEPTANCE.json
+          if-no-files-found: ignore

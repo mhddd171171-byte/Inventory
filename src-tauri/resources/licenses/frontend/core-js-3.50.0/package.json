@@ -1,0 +1,11 @@
+{
+  "name": "core-js",
+  "version": "3.50.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zloirock/core-js.git",
+    "directory": "packages/core-js"
+  },
+  "homepage": "https://core-js.io"
+}

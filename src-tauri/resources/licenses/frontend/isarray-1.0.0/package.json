@@ -1,0 +1,10 @@
+{
+  "name": "isarray",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/juliangruber/isarray.git"
+  },
+  "homepage": "https://github.com/juliangruber/isarray"
+}

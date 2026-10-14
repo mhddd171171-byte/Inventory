@@ -1,0 +1,10 @@
+{
+  "name": "async-function",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ljharb/async-function.git"
+  },
+  "homepage": "https://github.com/ljharb/async-function#readme"
+}

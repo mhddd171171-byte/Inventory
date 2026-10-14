@@ -1,0 +1,22 @@
+[
+  {
+    "url": "https://files.pythonhosted.org/packages/02/cc/95b18b58d9c235d8e0bcece7321b7a7347873c14f9fea2c734b31ef04ff2/piper_tts-1.8.0.tar.gz",
+    "file": "piper_tts-1.8.0.tar.gz",
+    "sha256": "830588aded347df579c91a32703e0fc2a3685d84f1e3533b14f2de69135d4904"
+  },
+  {
+    "url": "https://codeload.github.com/OHF-Voice/piper1-gpl/tar.gz/639388b6317fc4731e91d53da42aea68fd4166ff",
+    "file": "piper-complete-639388b.tar.gz",
+    "sha256": "a7045b7ef4268d1088047c20a69ae447b552e579dacb42d3dc18f53576aa54ce"
+  },
+  {
+    "url": "https://codeload.github.com/espeak-ng/espeak-ng/tar.gz/724808c5a83f9ef95fdd0db886ba7ba537ff224a",
+    "file": "espeak-ng-724808c.tar.gz",
+    "sha256": "7d8ebd78201923a443245362a928999977d1721c3eeba596eafc6ea8db7e243c"
+  },
+  {
+    "url": "https://files.pythonhosted.org/packages/94/94/1f62e95e4a28b64cfbb5b922ef3046f968b47170d37a1e1a029f56ac9cb4/pyinstaller-6.16.0.tar.gz",
+    "file": "pyinstaller-6.16.0.tar.gz",
+    "sha256": "53559fe1e041a234f2b4dcc3288ea8bdd57f7cad8a6644e422c27bb407f3edef"
+  }
+]

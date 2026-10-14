@@ -1,0 +1,10 @@
+{
+  "name": "which-builtin-type",
+  "version": "1.2.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/which-builtin-type.git"
+  },
+  "homepage": "https://github.com/inspect-js/which-builtin-type#readme"
+}

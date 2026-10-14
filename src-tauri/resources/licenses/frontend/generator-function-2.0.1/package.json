@@ -1,0 +1,10 @@
+{
+  "name": "generator-function",
+  "version": "2.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TimothyGu/generator-function.git"
+  },
+  "homepage": "https://github.com/TimothyGu/generator-function#readme"
+}

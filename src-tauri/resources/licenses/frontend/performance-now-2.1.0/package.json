@@ -1,0 +1,10 @@
+{
+  "name": "performance-now",
+  "version": "2.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/braveg1rl/performance-now.git"
+  },
+  "homepage": "https://github.com/braveg1rl/performance-now"
+}

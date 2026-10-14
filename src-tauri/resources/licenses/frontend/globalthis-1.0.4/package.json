@@ -1,0 +1,10 @@
+{
+  "name": "globalthis",
+  "version": "1.0.4",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ljharb/System.global.git"
+  },
+  "homepage": null
+}

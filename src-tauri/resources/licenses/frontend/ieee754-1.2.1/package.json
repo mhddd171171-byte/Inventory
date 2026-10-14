@@ -1,0 +1,10 @@
+{
+  "name": "ieee754",
+  "version": "1.2.1",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/feross/ieee754.git"
+  },
+  "homepage": null
+}

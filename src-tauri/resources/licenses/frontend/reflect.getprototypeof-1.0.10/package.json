@@ -1,0 +1,10 @@
+{
+  "name": "reflect.getprototypeof",
+  "version": "1.0.10",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/es-shims/Reflect.getPrototypeOf.git"
+  },
+  "homepage": "https://github.com/es-shims/Reflect.getPrototypeOf"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "buffer-indexof-polyfill",
+  "version": "1.0.2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sarosia/buffer-indexof-polyfill.git"
+  },
+  "homepage": "https://github.com/sarosia/buffer-indexof-polyfill#readme"
+}

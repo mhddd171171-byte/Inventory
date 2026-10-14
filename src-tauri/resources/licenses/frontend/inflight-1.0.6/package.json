@@ -1,0 +1,10 @@
+{
+  "name": "inflight",
+  "version": "1.0.6",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/npm/inflight.git"
+  },
+  "homepage": "https://github.com/isaacs/inflight"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "css-line-break",
+  "version": "2.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/niklasvh/css-line-break.git"
+  },
+  "homepage": "https://github.com/niklasvh/css-line-break#readme"
+}

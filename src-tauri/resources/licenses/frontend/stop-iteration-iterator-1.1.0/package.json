@@ -1,0 +1,10 @@
+{
+  "name": "stop-iteration-iterator",
+  "version": "1.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ljharb/stop-iteration-iterator.git"
+  },
+  "homepage": "https://github.com/ljharb/stop-iteration-iterator#readme"
+}

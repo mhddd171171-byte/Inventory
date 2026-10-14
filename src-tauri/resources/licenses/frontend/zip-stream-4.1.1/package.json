@@ -1,0 +1,10 @@
+{
+  "name": "zip-stream",
+  "version": "4.1.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/archiverjs/node-zip-stream.git"
+  },
+  "homepage": "https://github.com/archiverjs/node-zip-stream"
+}

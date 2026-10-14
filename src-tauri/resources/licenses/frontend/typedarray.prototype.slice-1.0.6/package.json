@@ -1,0 +1,10 @@
+{
+  "name": "typedarray.prototype.slice",
+  "version": "1.0.6",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/es-shims/TypedArray.prototype.slice.git"
+  },
+  "homepage": "https://github.com/es-shims/TypedArray.prototype.slice#readme"
+}

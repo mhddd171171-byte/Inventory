@@ -1,0 +1,10 @@
+{
+  "name": "call-bind",
+  "version": "1.0.9",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ljharb/call-bind.git"
+  },
+  "homepage": "https://github.com/ljharb/call-bind#readme"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "jspdf-autotable",
+  "version": "5.0.8",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/simonbengtsson/jsPDF-AutoTable.git"
+  },
+  "homepage": "https://simonbengtsson.github.io/jsPDF-AutoTable"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "own-keys",
+  "version": "1.0.2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ljharb/own-keys.git"
+  },
+  "homepage": "https://github.com/ljharb/own-keys#readme"
+}

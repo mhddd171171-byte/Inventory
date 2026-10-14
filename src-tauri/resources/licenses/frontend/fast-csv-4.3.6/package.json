@@ -1,0 +1,11 @@
+{
+  "name": "fast-csv",
+  "version": "4.3.6",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/C2FO/fast-csv.git",
+    "directory": "packages/fast-csv"
+  },
+  "homepage": "http://c2fo.github.com/fast-csv"
+}

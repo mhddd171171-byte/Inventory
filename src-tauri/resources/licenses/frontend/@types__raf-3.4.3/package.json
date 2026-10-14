@@ -1,0 +1,11 @@
+{
+  "name": "@types/raf",
+  "version": "3.4.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+    "directory": "types/raf"
+  },
+  "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/raf"
+}

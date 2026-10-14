@@ -1,0 +1,10 @@
+{
+  "name": "binary",
+  "version": "0.3.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/substack/node-binary.git"
+  },
+  "homepage": null
+}

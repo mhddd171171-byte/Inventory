@@ -1,0 +1,10 @@
+{
+  "name": "fs.realpath",
+  "version": "1.0.0",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/isaacs/fs.realpath.git"
+  },
+  "homepage": null
+}

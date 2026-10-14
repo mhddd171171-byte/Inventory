@@ -1,0 +1,10 @@
+{
+  "name": "is-shared-array-buffer",
+  "version": "1.0.4",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/is-shared-array-buffer.git"
+  },
+  "homepage": "https://github.com/inspect-js/is-shared-array-buffer#readme"
+}

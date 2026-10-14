@@ -1,0 +1,10 @@
+{
+  "name": "which-collection",
+  "version": "1.0.2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/which-collection.git"
+  },
+  "homepage": "https://github.com/inspect-js/which-collection#readme"
+}

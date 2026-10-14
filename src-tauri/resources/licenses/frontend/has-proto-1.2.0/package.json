@@ -1,0 +1,10 @@
+{
+  "name": "has-proto",
+  "version": "1.2.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/has-proto.git"
+  },
+  "homepage": "https://github.com/inspect-js/has-proto#readme"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "typed-array-byte-length",
+  "version": "1.0.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/typed-array-byte-length.git"
+  },
+  "homepage": "https://github.com/inspect-js/typed-array-byte-length#readme"
+}

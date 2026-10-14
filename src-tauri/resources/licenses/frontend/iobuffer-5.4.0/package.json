@@ -1,0 +1,10 @@
+{
+  "name": "iobuffer",
+  "version": "5.4.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/image-js/iobuffer.git"
+  },
+  "homepage": "https://github.com/image-js/iobuffer#readme"
+}

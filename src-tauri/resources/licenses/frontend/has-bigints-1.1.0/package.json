@@ -1,0 +1,10 @@
+{
+  "name": "has-bigints",
+  "version": "1.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ljharb/has-bigints.git"
+  },
+  "homepage": "https://github.com/ljharb/has-bigints#readme"
+}

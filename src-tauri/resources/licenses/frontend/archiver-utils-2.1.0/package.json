@@ -1,0 +1,10 @@
+{
+  "name": "archiver-utils",
+  "version": "2.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/archiverjs/archiver-utils.git"
+  },
+  "homepage": "https://github.com/archiverjs/archiver-utils#readme"
+}

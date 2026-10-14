@@ -1,0 +1,10 @@
+{
+  "name": "@tauri-apps/api",
+  "version": "2.12.3",
+  "license": "Apache-2.0 OR MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tauri-apps/tauri.git"
+  },
+  "homepage": "https://github.com/tauri-apps/tauri#readme"
+}

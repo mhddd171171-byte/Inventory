@@ -1,0 +1,10 @@
+{
+  "name": "set-function-length",
+  "version": "1.2.2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ljharb/set-function-length.git"
+  },
+  "homepage": "https://github.com/ljharb/set-function-length#readme"
+}

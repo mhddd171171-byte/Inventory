@@ -1,0 +1,10 @@
+{
+  "name": "exceljs",
+  "version": "4.4.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exceljs/exceljs.git"
+  },
+  "homepage": null
+}

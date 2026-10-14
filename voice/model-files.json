@@ -1,0 +1,102 @@
+[
+  {
+    "path": "stt/config.json",
+    "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/config.json",
+    "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828",
+    "bytes": 2370
+  },
+  {
+    "path": "stt/model.bin",
+    "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/model.bin",
+    "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "bytes": 483546902
+  },
+  {
+    "path": "stt/tokenizer.json",
+    "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/tokenizer.json",
+    "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+    "bytes": 2203239
+  },
+  {
+    "path": "stt/vocabulary.txt",
+    "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/vocabulary.txt",
+    "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913",
+    "bytes": 459861
+  },
+  {
+    "path": "stt/README.md",
+    "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/README.md",
+    "sha256": "329373481008c7c38654aff8ecdcf0163c211557cc7ba8e2ef6f2f84b4f75ec8",
+    "bytes": 1998
+  },
+  {
+    "path": "tts/nabra/model.onnx",
+    "bytes": 325639514,
+    "sha256": "1a9ff2190c1a2f7d3d0278b6a661e8db63e4794a4f8bd9410027046bde3e7a7e",
+    "url": "https://huggingface.co/marwanelamami/Nabra-82M-v0.1-ONNX/resolve/85065b0be8573aefb401f8f53e7edc37d6556186/nabra_fp32.onnx"
+  },
+  {
+    "path": "tts/nabra/vocab.json",
+    "bytes": 1513,
+    "sha256": "04fca6a30e124ac7dd3c006cd531af278e4b68f320171e4389adb0cb6e5cf486",
+    "url": "https://huggingface.co/marwanelamami/Nabra-82M-v0.1-ONNX/resolve/85065b0be8573aefb401f8f53e7edc37d6556186/vocab.json"
+  },
+  {
+    "path": "tts/nabra/voice.bin",
+    "bytes": 522240,
+    "sha256": "129d447a7c9bdce1d5b6cb5ecb789bbfd9f427b7775131a97dfa5638583b3b92",
+    "url": "https://huggingface.co/marwanelamami/Nabra-82M-v0.1-ONNX/resolve/85065b0be8573aefb401f8f53e7edc37d6556186/voices_af_msa.pt",
+    "source_sha256": "9324145629d870a899078ef0a70eabc0706c219ccbf002fa6a18278a201c9664",
+    "archive_member": "af_msa_r2s2_final/data/0"
+  },
+  {
+    "path": "tts/nabra/README.md",
+    "bytes": 7878,
+    "sha256": "50cc0d3efaefa6ea05f6dc36a1724f40a43676a6d32b55d4000cbeb9f9cd83fa",
+    "url": "https://huggingface.co/marwanelamami/Nabra-82M-v0.1-ONNX/resolve/85065b0be8573aefb401f8f53e7edc37d6556186/README.md"
+  },
+  {
+    "path": "tts/kokoro/model.onnx",
+    "bytes": 92361116,
+    "sha256": "fbae9257e1e05ffc727e951ef9b9c98418e6d79f1c9b6b13bd59f5c9028a1478",
+    "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_quantized.onnx"
+  },
+  {
+    "path": "tts/kokoro/vocab.json",
+    "bytes": 2351,
+    "sha256": "5abb01e2403b072bf03d04fde160443e209d7a0dad49a423be15196b9b43c17f",
+    "url": "https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/config.json"
+  },
+  {
+    "path": "tts/kokoro/voice.bin",
+    "bytes": 522240,
+    "sha256": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
+    "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_heart.bin"
+  },
+  {
+    "path": "tts/kokoro/README.md",
+    "bytes": 10627,
+    "sha256": "b8fd888b4782f4d4ae85e2f1587cafd727037f4f138f72429ef1bd5908c0e9d8",
+    "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md"
+  },
+  {
+    "path": "tts/catt/catt_eo.int8.onnx",
+    "bytes": 21564456,
+    "sha256": "59ba20d02a4b507a6b816a9b46b1230ba73d341c6731aa48da5de99388a39fca",
+    "url": "https://huggingface.co/TigreGotico/catt-diacritizer/resolve/8ad763613cce96511c099e9943820be7cc80fbc2/catt_eo.int8.onnx"
+  },
+  {
+    "path": "tts/catt/tokenizer.json",
+    "bytes": 1739,
+    "sha256": "cd2fa843c89ed4bf686d2328e67754ed5843c18ad3f2441b20854fd66e8be9e8",
+    "url": "https://huggingface.co/TigreGotico/catt-diacritizer/resolve/8ad763613cce96511c099e9943820be7cc80fbc2/tashkeel_tokenizer_onnx.py",
+    "source_file": "voice/catt-tokenizer.json",
+    "derivation": "Character/tag/Buckwalter tables from pinned CATT tokenizer, bw2ar.py; original sources and Apache license are supplied."
+  },
+  {
+    "path": "tts/catt/README.md",
+    "bytes": 1960,
+    "sha256": "07d136f48d68086d8fcb3bac6c0a2b652883ed91f8756d6353fc0c24a97deadb",
+    "url": "https://huggingface.co/TigreGotico/catt-diacritizer/resolve/8ad763613cce96511c099e9943820be7cc80fbc2/README.md"
+  }
+]

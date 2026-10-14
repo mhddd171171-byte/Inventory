@@ -1,0 +1,10 @@
+{
+  "name": "is-document.all",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/is-document.all.git"
+  },
+  "homepage": "https://github.com/inspect-js/is-document.all#readme"
+}

@@ -1,0 +1,12 @@
+# Candidate Intel/macOS 13+ build profile. Must be installed and tested on a Mac.
+# Windows uses requirements-lock.txt and its separately packaged runtime.
+# ONNX Runtime 1.31.0 has no Intel Mac wheel; 1.23.2 publishes a macOS 13 x86_64 wheel.
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+sounddevice==0.5.3
+piper-tts==1.8.0
+onnxruntime==1.23.2
+numpy==1.26.4
+pyinstaller==6.16.0
+av==16.0.1
+pywebrtc-audio==0.2.0

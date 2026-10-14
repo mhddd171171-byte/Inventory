@@ -1,0 +1,10 @@
+{
+  "name": "has-property-descriptors",
+  "version": "1.0.2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/has-property-descriptors.git"
+  },
+  "homepage": "https://github.com/inspect-js/has-property-descriptors#readme"
+}

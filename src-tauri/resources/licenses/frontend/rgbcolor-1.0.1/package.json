@@ -1,0 +1,10 @@
+{
+  "name": "rgbcolor",
+  "version": "1.0.1",
+  "license": "MIT OR SEE LICENSE IN FEEL-FREE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yetzt/node-rgbcolor.git"
+  },
+  "homepage": null
+}

@@ -1,0 +1,16 @@
+{
+  "bundle": {
+    "targets": ["app", "dmg"],
+    "icon": ["icons/icon.icns"],
+    "resources": {
+      "../.build/macos-resources/ai/": "resources/ai/",
+      "../.build/macos-resources/voice/": "resources/voice/",
+      "../.build/macos-resources/licenses/": "resources/licenses/"
+    },
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "infoPlist": "Info.plist",
+      "entitlements": "Entitlements.plist"
+    }
+  }
+}

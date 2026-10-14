@@ -1,0 +1,10 @@
+{
+  "name": "traverse",
+  "version": "0.3.10",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ljharb/js-traverse.git"
+  },
+  "homepage": "https://github.com/ljharb/js-traverse"
+}

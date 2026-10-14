@@ -1,0 +1,10 @@
+{
+  "name": "es-set-tostringtag",
+  "version": "2.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/es-shims/es-set-tostringtag.git"
+  },
+  "homepage": "https://github.com/es-shims/es-set-tostringtag#readme"
+}

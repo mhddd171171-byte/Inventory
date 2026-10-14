@@ -1,0 +1,10 @@
+{
+  "name": "buffer-crc32",
+  "version": "0.2.13",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/brianloveswords/buffer-crc32.git"
+  },
+  "homepage": "https://github.com/brianloveswords/buffer-crc32"
+}

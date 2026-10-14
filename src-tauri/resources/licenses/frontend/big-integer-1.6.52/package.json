@@ -1,0 +1,10 @@
+{
+  "name": "big-integer",
+  "version": "1.6.52",
+  "license": "Unlicense",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:peterolson/BigInteger.js.git"
+  },
+  "homepage": null
+}

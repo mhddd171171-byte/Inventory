@@ -1,0 +1,10 @@
+{
+  "name": "base64-arraybuffer",
+  "version": "1.0.2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/niklasvh/base64-arraybuffer"
+  },
+  "homepage": "https://github.com/niklasvh/base64-arraybuffer"
+}

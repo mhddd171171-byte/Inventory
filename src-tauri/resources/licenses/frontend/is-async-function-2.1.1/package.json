@@ -1,0 +1,10 @@
+{
+  "name": "is-async-function",
+  "version": "2.1.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/inspect-js/is-async-function.git"
+  },
+  "homepage": null
+}

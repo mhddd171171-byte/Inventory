@@ -1,0 +1,10 @@
+{
+  "name": "chainsaw",
+  "version": "0.1.0",
+  "license": "MIT/X11",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/substack/node-chainsaw.git"
+  },
+  "homepage": null
+}

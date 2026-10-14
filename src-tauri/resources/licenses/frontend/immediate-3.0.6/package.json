@@ -1,0 +1,10 @@
+{
+  "name": "immediate",
+  "version": "3.0.6",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/calvinmetcalf/immediate.git"
+  },
+  "homepage": null
+}

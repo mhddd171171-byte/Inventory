@@ -1,0 +1,10 @@
+{
+  "name": "crc32-stream",
+  "version": "4.0.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/archiverjs/node-crc32-stream.git"
+  },
+  "homepage": "https://github.com/archiverjs/node-crc32-stream"
+}

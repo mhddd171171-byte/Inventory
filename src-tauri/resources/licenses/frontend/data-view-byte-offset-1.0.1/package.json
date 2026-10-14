@@ -1,0 +1,10 @@
+{
+  "name": "data-view-byte-offset",
+  "version": "1.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspect-js/data-view-byte-offset.git"
+  },
+  "homepage": "https://github.com/inspect-js/data-view-byte-offset#readme"
+}

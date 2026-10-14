@@ -1,0 +1,10 @@
+{
+  "name": "text-segmentation",
+  "version": "1.0.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/niklasvh/text-segmentation.git"
+  },
+  "homepage": "https://github.com/niklasvh/text-segmentation"
+}

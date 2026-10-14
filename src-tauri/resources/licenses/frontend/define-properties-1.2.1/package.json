@@ -1,0 +1,10 @@
+{
+  "name": "define-properties",
+  "version": "1.2.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ljharb/define-properties.git"
+  },
+  "homepage": null
+}

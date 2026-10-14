@@ -1,0 +1,10 @@
+{
+  "name": "utrie",
+  "version": "1.0.2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/niklasvh/utrie.git"
+  },
+  "homepage": "https://github.com/niklasvh/utrie"
+}

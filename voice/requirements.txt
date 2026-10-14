@@ -1,0 +1,10 @@
+# Build-time only; the customer uses the bundled executable without installing Python.
+# requirements-lock.txt records the complete Windows build environment.
+faster-whisper==1.2.1
+sounddevice==0.5.3
+piper-tts==1.8.0
+onnxruntime==1.31.0
+pyinstaller==6.16.0
+# Encoded audio decoding is excluded from the packaged PCM-only worker.
+av==16.0.1
+pywebrtc-audio==0.2.0

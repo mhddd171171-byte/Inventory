@@ -1,0 +1,10 @@
+{
+  "name": "jspdf",
+  "version": "4.2.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/parallax/jsPDF.git"
+  },
+  "homepage": "https://github.com/parallax/jsPDF"
+}

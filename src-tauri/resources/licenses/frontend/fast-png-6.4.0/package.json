@@ -1,0 +1,10 @@
+{
+  "name": "fast-png",
+  "version": "6.4.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/image-js/fast-png.git"
+  },
+  "homepage": "https://github.com/image-js/fast-png#readme"
+}

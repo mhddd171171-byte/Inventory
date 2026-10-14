@@ -1,0 +1,10 @@
+{
+  "name": "arraybuffer.prototype.slice",
+  "version": "1.0.4",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/es-shims/ArrayBuffer.prototype.slice.git"
+  },
+  "homepage": "https://github.com/es-shims/ArrayBuffer.prototype.slice#readme"
+}

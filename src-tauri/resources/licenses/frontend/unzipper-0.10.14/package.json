@@ -1,0 +1,10 @@
+{
+  "name": "unzipper",
+  "version": "0.10.14",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZJONSSON/node-unzipper.git"
+  },
+  "homepage": null
+}

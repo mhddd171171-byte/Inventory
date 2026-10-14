@@ -1,0 +1,10 @@
+{
+  "name": "process-nextick-args",
+  "version": "2.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calvinmetcalf/process-nextick-args.git"
+  },
+  "homepage": "https://github.com/calvinmetcalf/process-nextick-args"
+}

@@ -1,0 +1,1122 @@
+[
+  {
+    "name": "@tauri-apps/api",
+    "version": "2.12.3",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
+    "name": "exceljs",
+    "version": "4.4.0",
+    "license": "MIT"
+  },
+  {
+    "name": "jspdf-autotable",
+    "version": "5.0.8",
+    "license": "MIT"
+  },
+  {
+    "name": "jspdf",
+    "version": "4.2.1",
+    "license": "MIT"
+  },
+  {
+    "name": "lucide-react",
+    "version": "0.468.0",
+    "license": "ISC"
+  },
+  {
+    "name": "react-dom",
+    "version": "19.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "react",
+    "version": "19.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "undici-types",
+    "version": "8.9.0",
+    "license": "MIT"
+  },
+  {
+    "name": "archiver",
+    "version": "5.3.2",
+    "license": "MIT"
+  },
+  {
+    "name": "dayjs",
+    "version": "1.11.23",
+    "license": "MIT"
+  },
+  {
+    "name": "fast-csv",
+    "version": "4.3.6",
+    "license": "MIT"
+  },
+  {
+    "name": "jszip",
+    "version": "3.10.2",
+    "license": "(MIT OR GPL-3.0-or-later)"
+  },
+  {
+    "name": "readable-stream",
+    "version": "3.6.2",
+    "license": "MIT"
+  },
+  {
+    "name": "saxes",
+    "version": "5.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "tmp",
+    "version": "0.2.7",
+    "license": "MIT"
+  },
+  {
+    "name": "unzipper",
+    "version": "0.10.14",
+    "license": "MIT"
+  },
+  {
+    "name": "uuid",
+    "version": "8.3.2",
+    "license": "MIT"
+  },
+  {
+    "name": "@babel/runtime",
+    "version": "7.29.10",
+    "license": "MIT"
+  },
+  {
+    "name": "canvg",
+    "version": "3.0.11",
+    "license": "MIT"
+  },
+  {
+    "name": "core-js",
+    "version": "3.50.0",
+    "license": "MIT"
+  },
+  {
+    "name": "dompurify",
+    "version": "3.4.16",
+    "license": "(MPL-2.0 OR Apache-2.0)"
+  },
+  {
+    "name": "fast-png",
+    "version": "6.4.0",
+    "license": "MIT"
+  },
+  {
+    "name": "fflate",
+    "version": "0.8.3",
+    "license": "MIT"
+  },
+  {
+    "name": "html2canvas",
+    "version": "1.4.1",
+    "license": "MIT"
+  },
+  {
+    "name": "scheduler",
+    "version": "0.28.0",
+    "license": "MIT"
+  },
+  {
+    "name": "archiver-utils",
+    "version": "2.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "async",
+    "version": "3.2.6",
+    "license": "MIT"
+  },
+  {
+    "name": "buffer-crc32",
+    "version": "0.2.13",
+    "license": "MIT"
+  },
+  {
+    "name": "readdir-glob",
+    "version": "1.1.3",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "tar-stream",
+    "version": "2.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "zip-stream",
+    "version": "4.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "@fast-csv/format",
+    "version": "4.3.5",
+    "license": "MIT"
+  },
+  {
+    "name": "@fast-csv/parse",
+    "version": "4.3.6",
+    "license": "MIT"
+  },
+  {
+    "name": "lie",
+    "version": "3.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "pako",
+    "version": "1.0.11",
+    "license": "(MIT AND Zlib)"
+  },
+  {
+    "name": "readable-stream",
+    "version": "2.3.8",
+    "license": "MIT"
+  },
+  {
+    "name": "setimmediate",
+    "version": "1.0.5",
+    "license": "MIT"
+  },
+  {
+    "name": "inherits",
+    "version": "2.0.4",
+    "license": "ISC"
+  },
+  {
+    "name": "string_decoder",
+    "version": "1.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "util-deprecate",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "xmlchars",
+    "version": "2.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "big-integer",
+    "version": "1.6.52",
+    "license": "Unlicense"
+  },
+  {
+    "name": "binary",
+    "version": "0.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "bluebird",
+    "version": "3.4.7",
+    "license": "MIT"
+  },
+  {
+    "name": "buffer-indexof-polyfill",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "duplexer2",
+    "version": "0.1.4",
+    "license": "BSD-3-Clause"
+  },
+  {
+    "name": "fstream",
+    "version": "1.0.12",
+    "license": "ISC"
+  },
+  {
+    "name": "graceful-fs",
+    "version": "4.2.11",
+    "license": "ISC"
+  },
+  {
+    "name": "listenercount",
+    "version": "1.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "readable-stream",
+    "version": "2.3.8",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/raf",
+    "version": "3.4.3",
+    "license": "MIT"
+  },
+  {
+    "name": "raf",
+    "version": "3.4.1",
+    "license": "MIT"
+  },
+  {
+    "name": "regenerator-runtime",
+    "version": "0.13.11",
+    "license": "MIT"
+  },
+  {
+    "name": "rgbcolor",
+    "version": "1.0.1",
+    "license": "MIT OR SEE LICENSE IN FEEL-FREE.md"
+  },
+  {
+    "name": "stackblur-canvas",
+    "version": "2.7.0",
+    "license": "MIT"
+  },
+  {
+    "name": "svg-pathdata",
+    "version": "6.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/trusted-types",
+    "version": "2.0.7",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/pako",
+    "version": "2.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "iobuffer",
+    "version": "5.4.0",
+    "license": "MIT"
+  },
+  {
+    "name": "pako",
+    "version": "2.2.0",
+    "license": "(MIT AND Zlib)"
+  },
+  {
+    "name": "css-line-break",
+    "version": "2.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "text-segmentation",
+    "version": "1.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "glob",
+    "version": "7.2.3",
+    "license": "ISC"
+  },
+  {
+    "name": "lazystream",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.defaults",
+    "version": "4.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.difference",
+    "version": "4.5.0",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.flatten",
+    "version": "4.4.0",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.isplainobject",
+    "version": "4.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.union",
+    "version": "4.6.0",
+    "license": "MIT"
+  },
+  {
+    "name": "normalize-path",
+    "version": "3.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "readable-stream",
+    "version": "2.3.8",
+    "license": "MIT"
+  },
+  {
+    "name": "minimatch",
+    "version": "5.1.9",
+    "license": "ISC"
+  },
+  {
+    "name": "bl",
+    "version": "4.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "end-of-stream",
+    "version": "1.4.5",
+    "license": "MIT"
+  },
+  {
+    "name": "fs-constants",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "archiver-utils",
+    "version": "3.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "compress-commons",
+    "version": "4.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/node",
+    "version": "14.18.63",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.escaperegexp",
+    "version": "4.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.isboolean",
+    "version": "3.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.isequal",
+    "version": "4.5.0",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.isfunction",
+    "version": "3.0.9",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.isnil",
+    "version": "4.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/node",
+    "version": "14.18.63",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.groupby",
+    "version": "4.6.0",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.isundefined",
+    "version": "3.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "lodash.uniq",
+    "version": "4.5.0",
+    "license": "MIT"
+  },
+  {
+    "name": "immediate",
+    "version": "3.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "core-util-is",
+    "version": "1.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "isarray",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "process-nextick-args",
+    "version": "2.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-buffer",
+    "version": "5.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "string_decoder",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-buffer",
+    "version": "5.2.1",
+    "license": "MIT"
+  },
+  {
+    "name": "buffers",
+    "version": "0.1.1",
+    "license": "See upstream notices"
+  },
+  {
+    "name": "chainsaw",
+    "version": "0.1.0",
+    "license": "MIT/X11"
+  },
+  {
+    "name": "readable-stream",
+    "version": "2.3.8",
+    "license": "MIT"
+  },
+  {
+    "name": "mkdirp",
+    "version": "0.5.6",
+    "license": "MIT"
+  },
+  {
+    "name": "rimraf",
+    "version": "2.7.1",
+    "license": "ISC"
+  },
+  {
+    "name": "isarray",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-buffer",
+    "version": "5.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "string_decoder",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "performance-now",
+    "version": "2.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "utrie",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "fs.realpath",
+    "version": "1.0.0",
+    "license": "ISC"
+  },
+  {
+    "name": "inflight",
+    "version": "1.0.6",
+    "license": "ISC"
+  },
+  {
+    "name": "minimatch",
+    "version": "3.1.5",
+    "license": "ISC"
+  },
+  {
+    "name": "once",
+    "version": "1.4.0",
+    "license": "ISC"
+  },
+  {
+    "name": "path-is-absolute",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "readable-stream",
+    "version": "2.3.8",
+    "license": "MIT"
+  },
+  {
+    "name": "isarray",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-buffer",
+    "version": "5.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "string_decoder",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "brace-expansion",
+    "version": "2.1.7",
+    "license": "MIT"
+  },
+  {
+    "name": "buffer",
+    "version": "5.7.1",
+    "license": "MIT"
+  },
+  {
+    "name": "crc32-stream",
+    "version": "4.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "traverse",
+    "version": "0.3.10",
+    "license": "MIT"
+  },
+  {
+    "name": "isarray",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-buffer",
+    "version": "5.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "string_decoder",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "minimist",
+    "version": "1.2.8",
+    "license": "MIT"
+  },
+  {
+    "name": "base64-arraybuffer",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "wrappy",
+    "version": "1.0.2",
+    "license": "ISC"
+  },
+  {
+    "name": "brace-expansion",
+    "version": "1.1.21",
+    "license": "MIT"
+  },
+  {
+    "name": "isarray",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-buffer",
+    "version": "5.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "string_decoder",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "balanced-match",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "base64-js",
+    "version": "1.5.1",
+    "license": "MIT"
+  },
+  {
+    "name": "ieee754",
+    "version": "1.2.1",
+    "license": "BSD-3-Clause"
+  },
+  {
+    "name": "crc-32",
+    "version": "1.2.2",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "define-data-property",
+    "version": "1.1.4",
+    "license": "MIT"
+  },
+  {
+    "name": "es-to-primitive",
+    "version": "1.3.4",
+    "license": "MIT"
+  },
+  {
+    "name": "gopd",
+    "version": "1.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "typedarray.prototype.slice",
+    "version": "1.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "which-typed-array",
+    "version": "1.1.24",
+    "license": "MIT"
+  },
+  {
+    "name": "concat-map",
+    "version": "0.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "es-define-property",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "es-errors",
+    "version": "1.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "es-abstract-get",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "is-callable",
+    "version": "1.2.7",
+    "license": "MIT"
+  },
+  {
+    "name": "is-date-object",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "is-symbol",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "call-bind",
+    "version": "1.0.9",
+    "license": "MIT"
+  },
+  {
+    "name": "define-properties",
+    "version": "1.2.1",
+    "license": "MIT"
+  },
+  {
+    "name": "es-abstract",
+    "version": "1.24.2",
+    "license": "MIT"
+  },
+  {
+    "name": "get-proto",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "math-intrinsics",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "typed-array-buffer",
+    "version": "1.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "typed-array-byte-offset",
+    "version": "1.0.5",
+    "license": "MIT"
+  },
+  {
+    "name": "available-typed-arrays",
+    "version": "1.0.7",
+    "license": "MIT"
+  },
+  {
+    "name": "call-bound",
+    "version": "1.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "for-each",
+    "version": "0.3.5",
+    "license": "MIT"
+  },
+  {
+    "name": "has-tostringtag",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "es-object-atoms",
+    "version": "1.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "object-inspect",
+    "version": "1.13.4",
+    "license": "MIT"
+  },
+  {
+    "name": "has-symbols",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-regex-test",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "call-bind-apply-helpers",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "get-intrinsic",
+    "version": "1.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "set-function-length",
+    "version": "1.2.2",
+    "license": "MIT"
+  },
+  {
+    "name": "has-property-descriptors",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "object-keys",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "array-buffer-byte-length",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "arraybuffer.prototype.slice",
+    "version": "1.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "data-view-buffer",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "data-view-byte-length",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "data-view-byte-offset",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "es-set-tostringtag",
+    "version": "2.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "function.prototype.name",
+    "version": "1.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "get-symbol-description",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "globalthis",
+    "version": "1.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "has-proto",
+    "version": "1.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "hasown",
+    "version": "2.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "internal-slot",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "is-array-buffer",
+    "version": "3.0.5",
+    "license": "MIT"
+  },
+  {
+    "name": "is-data-view",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "is-negative-zero",
+    "version": "2.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "is-regex",
+    "version": "1.2.1",
+    "license": "MIT"
+  },
+  {
+    "name": "is-set",
+    "version": "2.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "is-shared-array-buffer",
+    "version": "1.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "is-string",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "is-typed-array",
+    "version": "1.1.15",
+    "license": "MIT"
+  },
+  {
+    "name": "is-weakref",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "object.assign",
+    "version": "4.1.7",
+    "license": "MIT"
+  },
+  {
+    "name": "own-keys",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "regexp.prototype.flags",
+    "version": "1.5.4",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-array-concat",
+    "version": "1.1.4",
+    "license": "MIT"
+  },
+  {
+    "name": "safe-push-apply",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "set-proto",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "stop-iteration-iterator",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "string.prototype.trim",
+    "version": "1.2.11",
+    "license": "MIT"
+  },
+  {
+    "name": "string.prototype.trimend",
+    "version": "1.0.10",
+    "license": "MIT"
+  },
+  {
+    "name": "string.prototype.trimstart",
+    "version": "1.0.8",
+    "license": "MIT"
+  },
+  {
+    "name": "typed-array-byte-length",
+    "version": "1.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "typed-array-length",
+    "version": "1.0.8",
+    "license": "MIT"
+  },
+  {
+    "name": "unbox-primitive",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "dunder-proto",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "reflect.getprototypeof",
+    "version": "1.0.10",
+    "license": "MIT"
+  },
+  {
+    "name": "possible-typed-array-names",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "function-bind",
+    "version": "1.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "functions-have-names",
+    "version": "1.2.3",
+    "license": "MIT"
+  },
+  {
+    "name": "is-document.all",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "side-channel",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "set-function-name",
+    "version": "2.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "isarray",
+    "version": "2.0.5",
+    "license": "MIT"
+  },
+  {
+    "name": "has-bigints",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "which-boxed-primitive",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "which-builtin-type",
+    "version": "1.2.1",
+    "license": "MIT"
+  },
+  {
+    "name": "side-channel-list",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "side-channel-map",
+    "version": "1.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "side-channel-weakmap",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "is-bigint",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "is-boolean-object",
+    "version": "1.2.2",
+    "license": "MIT"
+  },
+  {
+    "name": "is-number-object",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "is-async-function",
+    "version": "2.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "is-finalizationregistry",
+    "version": "1.1.1",
+    "license": "MIT"
+  },
+  {
+    "name": "is-generator-function",
+    "version": "1.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "which-collection",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "async-function",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "generator-function",
+    "version": "2.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "is-map",
+    "version": "2.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "is-weakmap",
+    "version": "2.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "is-weakset",
+    "version": "2.0.4",
+    "license": "MIT"
+  }
+]

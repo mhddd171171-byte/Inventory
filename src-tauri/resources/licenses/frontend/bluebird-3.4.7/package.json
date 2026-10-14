@@ -1,0 +1,10 @@
+{
+  "name": "bluebird",
+  "version": "3.4.7",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/petkaantonov/bluebird.git"
+  },
+  "homepage": "https://github.com/petkaantonov/bluebird"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "html2canvas",
+  "version": "1.4.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:niklasvh/html2canvas.git"
+  },
+  "homepage": "https://html2canvas.hertzen.com"
+}
