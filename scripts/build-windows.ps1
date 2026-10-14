@@ -13,4 +13,4 @@ $webView=Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'tauri/x64') -F
 if(-not $webView){throw 'The offline Microsoft WebView2 x64 installer is missing from the Tauri build cache.'}
 & $compiler "/DRepoRoot=$repoRoot" "/DWebViewInstaller=$($webView.FullName)" (Join-Path $repoRoot 'src-tauri/installer/windows.iss')
 if($LASTEXITCODE -ne 0){throw 'Offline installer compilation failed.'}
-Write-Output (Join-Path $repoRoot 'deliverables/Inventory Manager_2.0.3_x64-setup.exe')
+Write-Output (Join-Path $repoRoot 'deliverables/Inventory Manager_2.0.4_x64-setup.exe')

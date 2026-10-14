@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowRight, Boxes, ChevronRight, Database, Download, FileText, LayoutDashboard, Package, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowRight, Boxes, ChevronRight, Database, Download, FileText, LayoutDashboard, Package, PackageX, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { call, isDesktop } from './api';
 import type { AssistantStatus, Page, Product, Snapshot } from './types';
 import { currentMonth, dateTime, matchesProduct, money, monthLabel, stockLabel } from './utils';
@@ -9,10 +9,11 @@ import ReportsPage from './ReportsPage';
 import SearchPage from './SearchPage';
 import AssistantPanel, { aiLabel } from './AssistantPanel';
 
-const navigation:[Page,typeof Package][] = [['Dashboard',LayoutDashboard],['Products',Boxes],['Stock Entry',ArrowDownLeft],['Stock Out',ArrowUpRight],['Search',Search],['Reports',FileText],['AI Assistant',Sparkles]];
+const navigation:[Page,typeof Package][] = [['Dashboard',LayoutDashboard],['Products',Boxes],['Out of Stock',PackageX],['Stock Entry',ArrowDownLeft],['Stock Out',ArrowUpRight],['Search',Search],['Reports',FileText],['AI Assistant',Sparkles]];
 const descriptions:Record<Page,string> = {
   Dashboard:'Your products, available stock and monthly sales at a glance.',
   Products:'Find products by Item Code, name or model.',
+  'Out of Stock':'Every product with no available units. Receive stock to clear an alert.',
   'Stock Entry':'Receive products and preserve the purchase cost of each batch.',
   'Stock Out':'Record the parts sold under an external customer CR number.',
   Reports:'Save PDF and Excel reports locally.',
@@ -21,6 +22,7 @@ const descriptions:Record<Page,string> = {
 };
 type Modal = {kind:'product';product?:Product}|{kind:'detail';product:Product}|{kind:'backup'}|null;
 export default function App() {
+  const [outSearch,setOutSearch] = useState('');
   const [page,setPage] = useState<Page>('Dashboard'),[snapshot,setSnapshot] = useState<Snapshot|null>(null),[status,setStatus] = useState<AssistantStatus|null>(null),[error,setError] = useState(''),[search,setSearch] = useState(''),[stockFilter,setStockFilter] = useState('all'),[modal,setModal] = useState<Modal>(null),[backupBusy,setBackupBusy] = useState(false),[backupResult,setBackupResult] = useState('');
   async function refresh() {const next = await call<Snapshot>('snapshot',{month:currentMonth()});setSnapshot(next);}
   useEffect(() => {
@@ -36,9 +38,11 @@ export default function App() {
     catch(e) {setError(errorMessage(e));} finally {setBackupBusy(false);}
   }
   const shown = snapshot?.products.filter(p => matchesProduct(p,search) && (stockFilter === 'all' || stockFilter === 'low' && p.quantity <= 2 || stockFilter === 'out' && p.quantity === 0)) ?? [];
+  const outOfStock = snapshot?.products.filter(p => p.quantity === 0) ?? [];
+  const shownOutOfStock = outOfStock.filter(p => matchesProduct(p,outSearch));
   const select = (product:Product) => setModal({kind:'detail',product});
   return <div className="app-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-icon"><Boxes size={25}/></span><div>Inventory<span className="brand-sub">AL MOHTARIF REPAIR CENTER</span></div></div><div className="workspace-label">WORKSPACE</div><nav>{navigation.map(([name,Icon]) => <button key={name} aria-label={name} className={`nav-item ${page === name ? 'active' : ''}`} onClick={() => {setPage(name);setError('');}}><Icon size={18}/>{name}{name === 'AI Assistant' && <span className="tiny-pill">LOCAL</span>}</button>)}</nav><div className="local-card"><div><i className="status-dot"/><strong>Stored on this computer</strong></div><p>Your inventory and AI work offline.</p><button className="text-link" onClick={() => {setBackupResult('');setModal({kind:'backup'});}}><Database size={14}/>Backup & restore</button></div></aside>
+    <aside className="sidebar"><div className="brand"><span className="brand-icon"><Boxes size={25}/></span><div>Inventory<span className="brand-sub">AL MOHTARIF REPAIR CENTER</span></div></div><div className="workspace-label">WORKSPACE</div><nav>{navigation.map(([name,Icon]) => <button key={name} aria-label={name} className={`nav-item ${page === name ? 'active' : ''}`} onClick={() => {setPage(name);setError('');if(name === 'Out of Stock') setOutSearch('');}}><Icon size={18}/>{name}{name === 'Out of Stock' && outOfStock.length > 0 && <span className="nav-alert-count" data-testid="out-of-stock-count" role="status" aria-label={`${outOfStock.length} out-of-stock ${outOfStock.length === 1 ? 'product' : 'products'}`}>{outOfStock.length}</span>}{name === 'AI Assistant' && <span className="tiny-pill">LOCAL</span>}</button>)}</nav><div className="local-card"><div><i className="status-dot"/><strong>Stored on this computer</strong></div><p>Your inventory and AI work offline.</p><button className="text-link" onClick={() => {setBackupResult('');setModal({kind:'backup'});}}><Database size={14}/>Backup & restore</button></div></aside>
     <main><header className="topbar"><div><Package size={15}/><span>Al Mohtarif Repair Center</span><ChevronRight size={12}/><span>{page}</span></div><div className="topbar-right"><span className={`ai-status ${status?.ready ? '' : status?.running ? 'starting' : 'unavailable'}`}><i className="status-dot"/>{aiLabel(status)}</span><span className="offline"><i className="status-dot"/>Offline</span></div></header><div className="page-content">
       <div className="page-heading"><div><span className="eyebrow">INVENTORY MANAGER</span><h1>{page}</h1><p>{descriptions[page]}</p></div><div className="heading-actions">{page === 'Products' && <button className="btn primary" disabled={!snapshot} onClick={() => setModal({kind:'product'})}><Plus size={16}/>Add product</button>}{page !== 'AI Assistant' && <button className="btn" onClick={() => void refresh().catch(e => setError(errorMessage(e)))}><RefreshCw size={15}/>Refresh</button>}</div></div>
       <Notice text={error}/>{!isDesktop && <Notice text="Open the installed desktop application to use your local database."/>}{!snapshot && <div className="panel"><Empty title={error ? 'Database unavailable' : 'Opening your inventory…'} text={error || 'Loading local records.'}/></div>}
@@ -51,6 +55,7 @@ export default function App() {
           <div className="panel dashboard-sales"><div className="panel-title"><div><h2>Recent sales</h2><p>CR-linked sales and recorded gross profit.</p></div></div>{snapshot.sale_lines.length ? <SalesTable lines={snapshot.sale_lines.slice(0,8)}/> : <Empty title="No sales recorded" text="Use Stock Out to record quantities, CR numbers and actual selling prices."/>}</div>
         </>}
         {page === 'Products' && <div className="panel"><div className="filters"><SearchBox value={search} onChange={setSearch}/><select aria-label="Stock filter" value={stockFilter} onChange={e => setStockFilter(e.target.value)}><option value="all">All stock levels</option><option value="low">Low / Critical / Out</option><option value="out">Out of Stock</option></select><span className="count">{shown.length} products</span></div>{shown.length ? <ProductTable products={shown} select={select} edit={product => setModal({kind:'product',product})}/> : <Empty title="No matching products" text="Search by name or model; an Item Code is not required. Create a product or receive it through Stock Entry."/>}<div className="table-footer">All quantities and values reflect saved stock transactions.</div></div>}
+        {page === 'Out of Stock' && <div className="panel"><div className="panel-title"><div><h2>Out-of-stock products</h2><p>{outOfStock.length} {outOfStock.length === 1 ? 'product has' : 'products have'} no available units.</p></div></div><div className="filters"><SearchBox value={outSearch} onChange={setOutSearch}/><span className="count">{shownOutOfStock.length} {shownOutOfStock.length === 1 ? 'product' : 'products'}</span></div>{shownOutOfStock.length ? <ProductTable products={shownOutOfStock} select={select}/> : <Empty title={outOfStock.length ? 'No matching out-of-stock products' : 'No out-of-stock items'} text={outOfStock.length ? 'Try another Item Code, name or model, or clear the search to see all out-of-stock products.' : snapshot.products.length ? 'Every product has stock available.' : 'Your inventory is empty. Add a product or receive stock through Stock Entry.'}/>}<div className="table-footer">Products leave this list automatically when you receive stock through Stock Entry.</div></div>}
         {page === 'Stock Entry' && <StockEntryPage snapshot={snapshot} saved={refresh}/>}
         {page === 'Stock Out' && <StockOutPage snapshot={snapshot} saved={refresh}/>}
         {page === 'Reports' && <ReportsPage/>}

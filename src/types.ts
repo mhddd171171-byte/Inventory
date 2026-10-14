@@ -41,4 +41,4 @@ export type Snapshot = {
   migration?: { legacy_products: number; unknown_cost_units: number; message: string;
     code_changes: {old_code: string; item_code: string; product_name: string}[] };
 };
-export type Page = 'Dashboard' | 'Products' | 'Stock Entry' | 'Stock Out' | 'Search' | 'Reports' | 'AI Assistant';
+export type Page = 'Dashboard' | 'Products' | 'Out of Stock' | 'Stock Entry' | 'Stock Out' | 'Search' | 'Reports' | 'AI Assistant';

@@ -184,8 +184,19 @@ nav {
   color: #3e6346;
   font-weight: 650;
 }
-.nav-item:nth-child(6) {
+.nav-item:nth-child(7) {
   margin-top: 19px;
+}
+.nav-alert-count {
+  margin-left: auto;
+  min-width: 21px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: #b42318;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
 }
 .tiny-pill {
   font-size: 8px;
