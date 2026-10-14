@@ -11,6 +11,9 @@ for tool in python3.12 node npm cargo rustup cmake xcrun; do
   command -v "$tool" >/dev/null || { echo "Missing build tool: $tool" >&2; exit 1; }
 done
 python3.12 scripts/verify-macos-models.py
+npm ci
+npm test
+npm run build
 if [[ -z "${LLAMA_SOURCE:-}" && -f build-inputs/llama-b11554.tar.gz ]]; then
   python3.12 scripts/extract-macos-llama.py
   LLAMA_SOURCE="$PWD/.build/llama-source/llama.cpp-b11554"
@@ -46,8 +49,6 @@ fi
 .build/voice-macos-env/bin/python scripts/smoke-macos-speech.py
 printf '{"shutdown":true}\n' | .build/macos-resources/voice/runtime/voice-worker --worker --resources .build/macos-resources/voice
 rustup target add x86_64-apple-darwin
-npm ci
-npm test
 cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
 for key in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH; do
   if [[ -z "${!key:-}" ]]; then unset "$key"; fi

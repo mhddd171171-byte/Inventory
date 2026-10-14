@@ -70,8 +70,14 @@ jobs:
             src-tauri/resources/voice/stt
             src-tauri/resources/voice/tts
             .build/llama-macos
-            src-tauri/target
+            src-tauri/target/release/deps
+            src-tauri/target/release/build
+            src-tauri/target/release/.fingerprint
+            src-tauri/target/x86_64-apple-darwin/release/deps
+            src-tauri/target/x86_64-apple-darwin/release/build
+            src-tauri/target/x86_64-apple-darwin/release/.fingerprint
           key: intel-macos-native-b11554-${{ hashFiles('voice/model-files.json', 'scripts/build-macos-intel.sh', 'src-tauri/Cargo.lock') }}
+          restore-keys: intel-macos-native-b11554-
       - name: Provision pinned offline resources
         id: provision
         run: python3.12 scripts/provision-macos-build.py
@@ -117,11 +123,17 @@ jobs:
           include-hidden-files: true
       - uses: actions/cache/save@v4
         if: always() && steps.provision.outcome == 'success' && steps.native-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
         with:
           path: |
             src-tauri/resources/ai/*.gguf
             src-tauri/resources/voice/stt
             src-tauri/resources/voice/tts
             .build/llama-macos
-            src-tauri/target
+            src-tauri/target/release/deps
+            src-tauri/target/release/build
+            src-tauri/target/release/.fingerprint
+            src-tauri/target/x86_64-apple-darwin/release/deps
+            src-tauri/target/x86_64-apple-darwin/release/build
+            src-tauri/target/x86_64-apple-darwin/release/.fingerprint
           key: intel-macos-native-b11554-${{ hashFiles('voice/model-files.json', 'scripts/build-macos-intel.sh', 'src-tauri/Cargo.lock') }}
