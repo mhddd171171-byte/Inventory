@@ -43,7 +43,7 @@ voice = stage / "voice"
 for name in ("stt", "tts"):
     shutil.copytree(source / "voice" / name, voice / name, copy_function=copy_model)
 shutil.copy2(source / "voice/MODELS.json", voice / "MODELS.json")
-shutil.copytree(ROOT / ".build/voice-macos-dist/voice-worker", voice / "runtime", dirs_exist_ok=True)
+shutil.copytree(ROOT / ".build/voice-macos-dist/voice-worker", voice / "runtime", dirs_exist_ok=True, symlinks=True)
 shutil.copytree(source / "licenses", stage / "licenses", ignore=shutil.ignore_patterns("voice"))
 cached_sources = source / "licenses/voice/sources"
 if cached_sources.is_dir():
