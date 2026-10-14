@@ -4,6 +4,7 @@ import shutil
 import platform
 import uuid
 import runpy
+import piper.phonemize_espeak
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +44,10 @@ voice = stage / "voice"
 for name in ("stt", "tts"):
     shutil.copytree(source / "voice" / name, voice / name, copy_function=copy_model)
 shutil.copy2(source / "voice/MODELS.json", voice / "MODELS.json")
+# Keep tables as ordinary resource files: Tauri does not preserve every
+# PyInstaller data-directory symlink when copying a nested helper bundle.
+shutil.copytree(piper.phonemize_espeak.ESPEAK_DATA_DIR, voice / "espeak-ng-data", symlinks=False)
+assert (voice / "espeak-ng-data/phontab").is_file()
 shutil.copytree(ROOT / ".build/voice-macos-dist/voice-worker", voice / "runtime", dirs_exist_ok=True, symlinks=True)
 shutil.copytree(source / "licenses", stage / "licenses", ignore=shutil.ignore_patterns("voice"))
 cached_sources = source / "licenses/voice/sources"

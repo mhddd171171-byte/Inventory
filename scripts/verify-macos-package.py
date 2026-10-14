@@ -27,6 +27,7 @@ try:
     app = apps[0]
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     resources = app / "Contents/Resources/resources"
+    assert (resources / "voice/espeak-ng-data/phontab").is_file()
     assert info["NSMicrophoneUsageDescription"]
     assert info["LSMinimumSystemVersion"] == "13.0"
     models = runpy.run_path(str(root / "scripts/verify-macos-models.py"))["verified_models"]()

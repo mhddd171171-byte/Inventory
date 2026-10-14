@@ -31,6 +31,7 @@ if [[ -n "${APPLE_SIGNING_IDENTITY:-}" && "$APPLE_SIGNING_IDENTITY" != '-' ]]; t
 fi
 .build/voice-macos-env/bin/python -m PyInstaller --noconfirm --onedir --console \
   "${voice_options[@]}" \
+  --runtime-hook scripts/macos-voice-runtime-hook.py \
   --name voice-worker --distpath .build/voice-macos-dist --workpath .build/voice-macos-work --specpath .build \
   --collect-all faster_whisper --collect-all piper --collect-all ctranslate2 \
   --collect-all onnxruntime --collect-all sounddevice --collect-all _sounddevice_data --collect-all tokenizers --collect-all pywebrtc_audio \

@@ -28,10 +28,10 @@ try:
         children = subprocess.run(["pgrep", "-P", str(process.pid)], capture_output=True, text=True)
         for value in children.stdout.split():
             pid = int(value)
-            owned.add(pid)
-            command = subprocess.check_output(["ps", "-p", str(pid), "-o", "command="], text=True)
+            command = subprocess.check_output(["ps", "-ww", "-p", str(pid), "-o", "command="], text=True)
             if "llama-server" not in command:
                 continue
+            owned.add(pid)
             port = re.search(r"--port\s+(\d+)", command)
             key = re.search(r"--api-key\s+(\S+)", command)
             if not port or not key:
