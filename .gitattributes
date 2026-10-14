@@ -3,3 +3,5 @@
 *.yml text eol=lf
 *.py text eol=lf
 *.ps1 text eol=crlf
+# This derived model table is checksum-pinned, including its exact byte encoding.
+voice/catt-tokenizer.json -text
