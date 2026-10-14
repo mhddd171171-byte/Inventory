@@ -58,7 +58,7 @@ fi
 printf '{"shutdown":true}\n' | .build/macos-resources/voice/runtime/voice-worker --worker --resources .build/macos-resources/voice
 rustup target add x86_64-apple-darwin
 if [[ "${INVENTORY_AI_ACCEPTANCE_REVIEW:-}" == "38598883688" ]]; then
-  python3.12 scripts/review-macos-acceptance.py
+  [[ -f .build/MACOS-AI-ACCEPTANCE.json ]] || python3.12 scripts/review-macos-acceptance.py
 else
 cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
 # Test the same profile before packaging, while Cargo's test binary is current.

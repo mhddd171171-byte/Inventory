@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: intel-macos-${{ github.ref }}
@@ -84,6 +85,10 @@ jobs:
       - name: Provision pinned offline resources
         id: provision
         run: python3.12 scripts/provision-macos-build.py
+      - name: Review unchanged native conversation evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3.12 scripts/review-macos-acceptance.py
       - name: Build native application and DMG
         env:
           GH_TOKEN: ${{ github.token }}
