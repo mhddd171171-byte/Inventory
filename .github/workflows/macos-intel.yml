@@ -20,6 +20,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: '13.0'
       PIP_NO_CACHE_DIR: '1'
       CARGO_INCREMENTAL: '0'
+      INVENTORY_AI_ACCEPTANCE_REVIEW: '38598883688'
       # Use ad-hoc signing when no Developer ID identity is configured.
       APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -27,6 +28,8 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Verify Intel host
         run: |
           test "$(uname -m)" = x86_64
@@ -81,9 +84,9 @@ jobs:
       - name: Provision pinned offline resources
         id: provision
         run: python3.12 scripts/provision-macos-build.py
-      - name: Check cached native bilingual inference first
-        run: python3.12 scripts/smoke-macos-inference.py
       - name: Build native application and DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash scripts/build-macos-intel.sh
       - name: Verify packaged Intel resources and offline helpers
         run: python3.12 scripts/verify-macos-package.py

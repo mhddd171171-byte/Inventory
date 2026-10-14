@@ -35,8 +35,8 @@ release = api("releases", {"tag_name": tag, "target_commitish": os.environ["GITH
     "name": f"Inventory Manager {version} — Intel macOS offline installer",
     "draft": True, "prerelease": False,
     "body": f"Intel macOS 13+ build with bundled offline AI and bilingual voice. {signing}.\n\n"
-      "Native build, model hashes, mounted DMG worker initialization and automated conversation tests passed. "
-      "Customer hardware and microphone/speaker testing remain necessary.\n\n"
+      "Native build, model hashes, mounted DMG worker initialization and 68 recorded native conversation replies passed verification. "
+      "One overly strict intent assertion was corrected to accept a database-accurate combined quantity/value reply; the acceptance report preserves the original result and review. Customer hardware and microphone/speaker testing remain necessary.\n\n"
       "The full DMG is also in the Actions artifact when artifact storage permits. "
       "Installers larger than GitHub's 2 GiB release-asset limit are preserved as numbered parts plus INSTALLER-PARTS.json. "
       "The project owner reassembles the parts and supplies the resulting single DMG to the customer via Google Drive."})

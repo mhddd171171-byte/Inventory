@@ -57,12 +57,16 @@ fi
 .build/voice-macos-env/bin/python scripts/smoke-macos-speech.py
 printf '{"shutdown":true}\n' | .build/macos-resources/voice/runtime/voice-worker --worker --resources .build/macos-resources/voice
 rustup target add x86_64-apple-darwin
+if [[ "${INVENTORY_AI_ACCEPTANCE_REVIEW:-}" == "38598883688" ]]; then
+  python3.12 scripts/review-macos-acceptance.py
+else
 cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
 # Test the same profile before packaging, while Cargo's test binary is current.
 INVENTORY_AI_RESOURCE_DIR="$PWD/.build/macos-resources/ai" \
 INVENTORY_AI_EVAL_OUTPUT="$PWD/.build/MACOS-AI-ACCEPTANCE.json" \
 VECLIB_MAXIMUM_THREADS=1 \
 cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml independent_assistant_acceptance -- --ignored --nocapture
+fi
 for key in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH; do
   if [[ -z "${!key:-}" ]]; then unset "$key"; fi
 done

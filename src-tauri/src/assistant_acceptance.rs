@@ -453,7 +453,7 @@ fn independent_assistant_acceptance() {
     eval.check("extra-followup", "Any stock left for item 11234?", &changed,
         "10 actual units using new phrasing", |a| count(a,10));
     eval.check("extra-followup", "طيب وكم قيمتها بسعر الشراء؟", &changed,
-        "Cross-language purchase value followup", |a| a["intent"]=="value" && text(a).contains("94.500"));
+        "Cross-language purchase value followup", |a| helpful(a) && text(a).contains("94.500") && (a["data"]["inventory_value_baisa"]==94500 || a["additional"]["data"]["inventory_value_baisa"]==94500));
     eval.check("extra-cr", "Which parts went out on receipt 99876?", &changed,
         "External receipt maps to real CR", |a| a["data"]["cr_number"]=="99876" && a["data"]["total_revenue_baisa"]==50000);
     eval.check("extra-unrelated", "Can you help me plan a holiday?", &changed,
