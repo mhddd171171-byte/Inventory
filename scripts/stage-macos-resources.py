@@ -35,7 +35,7 @@ name = manifest["model_file"]
 if Path(name).name != name:
     raise SystemExit("Model must be a single resource filename.")
 copy_model(source / "ai" / name, ai / name)
-manifest.update(context_size=2048, cpu_threads=4)
+manifest.update(context_size=4096, cpu_threads=4)
 (ai / "runtime.json").write_text(json.dumps(manifest, indent=2))
 shutil.copy2(ROOT / ".build/llama-macos/bin/llama-server", ai / "llama-server")
 for name in ("LICENSE-Qwen3.txt", "LICENSE-llama.cpp.txt"):

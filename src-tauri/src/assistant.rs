@@ -68,7 +68,7 @@ impl Assistant {
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(2))
-                .timeout(Duration::from_secs(90))
+                .timeout(Duration::from_secs(if cfg!(target_os = "macos") { 240 } else { 90 }))
                 .build()
                 .map_err(|e| e.to_string())?,
             child: Arc::new(Mutex::new(None)),
@@ -343,6 +343,8 @@ impl Assistant {
         command
             .env("HF_HUB_OFFLINE", "1")
             .env("HF_HUB_DISABLE_TELEMETRY", "1");
+        #[cfg(target_os = "macos")]
+        command.env("VECLIB_MAXIMUM_THREADS", "1");
         hidden(&mut command);
         drop(listener);
         self.diagnostics = Arc::new(Mutex::new(String::new()));

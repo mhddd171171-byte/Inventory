@@ -36,11 +36,18 @@ fi
   --collect-all faster_whisper --collect-all piper --collect-all ctranslate2 \
   --collect-all onnxruntime --collect-all sounddevice --collect-all _sounddevice_data --collect-all tokenizers --collect-all pywebrtc_audio \
   --exclude-module av --exclude-module piper.train --exclude-module piper.http_server voice/transcribe.py
+if [[ -x .build/llama-macos/bin/llama-server ]] && [[ -f .build/llama-macos/CMakeCache.txt ]] && \
+  grep -q 'GGML_NATIVE:BOOL=OFF' .build/llama-macos/CMakeCache.txt && \
+  grep -q 'GGML_METAL:BOOL=OFF' .build/llama-macos/CMakeCache.txt && \
+  [[ "$(lipo -archs .build/llama-macos/bin/llama-server)" == x86_64 ]]; then
+  echo 'Reusing cached b11554 Intel CPU runtime from the checksum-pinned native cache.'
+else
 cmake -S "$LLAMA_SOURCE" -B .build/llama-macos \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DGGML_METAL=OFF -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF \
   -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DGGML_OPENMP=OFF
 cmake --build .build/llama-macos --config Release --target llama-server -j 4
+fi
 if [[ -n "${APPLE_SIGNING_IDENTITY:-}" && "$APPLE_SIGNING_IDENTITY" != '-' ]]; then
   codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" .build/llama-macos/bin/llama-server
 fi
@@ -51,6 +58,11 @@ fi
 printf '{"shutdown":true}\n' | .build/macos-resources/voice/runtime/voice-worker --worker --resources .build/macos-resources/voice
 rustup target add x86_64-apple-darwin
 cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
+# Test the same profile before packaging, while Cargo's test binary is current.
+INVENTORY_AI_RESOURCE_DIR="$PWD/.build/macos-resources/ai" \
+INVENTORY_AI_EVAL_OUTPUT="$PWD/.build/MACOS-AI-ACCEPTANCE.json" \
+VECLIB_MAXIMUM_THREADS=1 \
+cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml independent_assistant_acceptance -- --ignored --nocapture
 for key in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH; do
   if [[ -z "${!key:-}" ]]; then unset "$key"; fi
 done

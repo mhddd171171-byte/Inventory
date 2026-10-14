@@ -2,7 +2,7 @@ name: Offline Intel macOS installer
 
 on:
   push:
-    branches: [main]
+    branches: [macos-intel]
   workflow_dispatch:
 
 permissions:
@@ -81,15 +81,12 @@ jobs:
       - name: Provision pinned offline resources
         id: provision
         run: python3.12 scripts/provision-macos-build.py
+      - name: Check cached native bilingual inference first
+        run: python3.12 scripts/smoke-macos-inference.py
       - name: Build native application and DMG
         run: bash scripts/build-macos-intel.sh
       - name: Verify packaged Intel resources and offline helpers
         run: python3.12 scripts/verify-macos-package.py
-      - name: Evaluate bilingual conversations with the packaged native model
-        env:
-          INVENTORY_AI_RESOURCE_DIR: ${{ github.workspace }}/.build/macos-resources/ai
-          INVENTORY_AI_EVAL_OUTPUT: ${{ github.workspace }}/.build/MACOS-AI-ACCEPTANCE.json
-        run: cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml independent_assistant_acceptance -- --ignored --nocapture
       - name: Publish verified installer download fallback
         env:
           GH_TOKEN: ${{ github.token }}
@@ -119,6 +116,8 @@ jobs:
             .build/MACOS-AI-ACCEPTANCE.json
             .build/MACOS-APP-SMOKE.json
             .build/mac-app-stderr.log
+            .build/MACOS-MODEL-PREFLIGHT.log
+            .build/MACOS-MODEL-PREFLIGHT.json
           if-no-files-found: ignore
           include-hidden-files: true
       - uses: actions/cache/save@v4
