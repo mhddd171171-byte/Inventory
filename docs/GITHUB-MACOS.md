@@ -11,12 +11,13 @@ uses immutable model revisions and checked SHA-256 hashes; the resulting app
 contains the files and performs no model downloads at startup. Source, manifests,
 scripts, tests, icons, reports/fonts and dependency notices are in Git.
 
-The `Inventory-Manager-Intel-macOS` Actions artifact contains the `.dmg`, checksum
-and Mac test evidence. GitHub Release assets must be below 2 GiB; the complete
-offline installer may exceed that, so the workflow uses an Actions artifact.
-Download/extract that artifact and upload the **single `.dmg`** to Google Drive
-for customer distribution. Actions artifact downloads require a GitHub sign-in. Verified releases also
-provide numbered DMG parts, which the project owner reassembles into one DMG. The customer should not be given development files.
+The `Intel-macOS-verification-reports` Actions artifact contains small checksum
+and test reports. The large installer is published as Release assets to avoid
+using Actions artifact storage for the DMG. GitHub Release assets must be below
+2 GiB; a larger offline installer is published as numbered parts with a checksum
+manifest. The project owner reassembles them into the **single `.dmg`** for
+Google Drive or USB distribution. The customer receives the DMG, not parts or
+development files.
 
 ## Signing
 

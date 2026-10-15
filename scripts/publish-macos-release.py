@@ -40,7 +40,7 @@ release = api("releases", {"tag_name": tag, "target_commitish": os.environ["GITH
       "Mac Settings includes AI off/on, Light/Dark/System appearance, and manual Retry AI. Failed startup or a 20-minute deadline turns AI off persistently, with no automatic retry. Windows remains at 2.0.4. "
       "Native build, model hashes, mounted DMG worker initialization, current native AI control tests, and 68 historical native conversation replies passed verification. "
       "One overly strict intent assertion was corrected to accept a database-accurate combined quantity/value reply; the acceptance report preserves the original result and review. Customer hardware and microphone/speaker testing remain necessary.\n\n"
-      "The full DMG is also in the Actions artifact when artifact storage permits. "
+      "Actions artifacts contain small verification reports; installer files are published as Release assets. "
       "Installers larger than GitHub's 2 GiB release-asset limit are preserved as numbered parts plus INSTALLER-PARTS.json. "
       "The project owner reassembles the parts and supplies the resulting single DMG to the customer via Google Drive."})
 upload = release["upload_url"].split("{", 1)[0]

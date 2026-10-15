@@ -93,6 +93,9 @@ jobs:
           npm test
           npm run build
           rustup target add x86_64-apple-darwin
+          # Tauri resolves these roots even for unit tests. Real resources are
+          # staged and checked by the native packaging step that follows.
+          mkdir -p .build/macos-resources/{ai,voice,licenses}
           cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
       - name: Build native application and DMG
         env:
@@ -108,9 +111,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: Inventory-Manager-Intel-macOS
+          name: Intel-macOS-verification-reports
           path: |
-            src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
             .build/MACOS-PACKAGE-VERIFICATION.json
             .build/MACOS-SHA256SUMS.txt
             .build/MACOS-AI-ACCEPTANCE.json
