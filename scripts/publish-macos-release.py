@@ -16,6 +16,8 @@ headers = {"Authorization": "Bearer " + token, "Accept": "application/vnd.github
            "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Inventory-Mac-Release"}
 verification = json.loads((root / ".build/MACOS-PACKAGE-VERIFICATION.json").read_text())
 assert verification["passed"]
+controls = json.loads((root / ".build/MACOS-AI-CONTROLS.json").read_text())
+assert controls["passed"]
 acceptance = json.loads((root / ".build/MACOS-AI-ACCEPTANCE.json").read_text())
 dmg_dir = root / "src-tauri/target/x86_64-apple-darwin/release/bundle/dmg"
 dmg = next(dmg_dir.glob("*.dmg"))
@@ -35,7 +37,8 @@ release = api("releases", {"tag_name": tag, "target_commitish": os.environ["GITH
     "name": f"Inventory Manager {version} — Intel macOS offline installer",
     "draft": True, "prerelease": False,
     "body": f"Intel macOS 13+ build with bundled offline AI and bilingual voice. {signing}.\n\n"
-      "Native build, model hashes, mounted DMG worker initialization and 68 recorded native conversation replies passed verification. "
+      "Mac Settings includes AI off/on, Light/Dark/System appearance, and manual Retry AI. Failed startup or a 20-minute deadline turns AI off persistently, with no automatic retry. Windows remains at 2.0.4. "
+      "Native build, model hashes, mounted DMG worker initialization, current native AI control tests, and 68 historical native conversation replies passed verification. "
       "One overly strict intent assertion was corrected to accept a database-accurate combined quantity/value reply; the acceptance report preserves the original result and review. Customer hardware and microphone/speaker testing remain necessary.\n\n"
       "The full DMG is also in the Actions artifact when artifact storage permits. "
       "Installers larger than GitHub's 2 GiB release-asset limit are preserved as numbered parts plus INSTALLER-PARTS.json. "
@@ -92,9 +95,9 @@ else:
     manifest_path = root / ".build/INSTALLER-PARTS.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     upload_file(manifest_path)
-for name in ("MACOS-PACKAGE-VERIFICATION.json", "MACOS-AI-ACCEPTANCE.json", "MACOS-SPEECH-SMOKE.json", "MACOS-APP-SMOKE.json", "MACOS-SHA256SUMS.txt"):
+for name in ("MACOS-PACKAGE-VERIFICATION.json", "MACOS-AI-ACCEPTANCE.json", "MACOS-SPEECH-SMOKE.json", "MACOS-APP-SMOKE.json", "MACOS-AI-CONTROLS.json", "MACOS-SHA256SUMS.txt"):
     upload_file(root / ".build" / name)
-api(f"releases/{release['id']}", {"draft": False}, "PATCH")
+release = api(f"releases/{release['id']}", {"draft": False}, "PATCH")
 print(f"Verified installer release: {release['html_url']}")
 with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
     summary.write(f"Installer download: [{release['name']}]({release['html_url']})\n\n{signing}.\n")

@@ -11,9 +11,11 @@ for tool in python3.12 node npm cargo rustup cmake xcrun; do
   command -v "$tool" >/dev/null || { echo "Missing build tool: $tool" >&2; exit 1; }
 done
 python3.12 scripts/verify-macos-models.py
-npm ci
-npm test
-npm run build
+if [[ "${INVENTORY_PRECHECKED:-}" != true ]]; then
+  npm ci
+  npm test
+  npm run build
+fi
 if [[ -z "${LLAMA_SOURCE:-}" && -f build-inputs/llama-b11554.tar.gz ]]; then
   python3.12 scripts/extract-macos-llama.py
   LLAMA_SOURCE="$PWD/.build/llama-source/llama.cpp-b11554"
@@ -57,6 +59,8 @@ fi
 .build/voice-macos-env/bin/python scripts/smoke-macos-speech.py
 printf '{"shutdown":true}\n' | .build/macos-resources/voice/runtime/voice-worker --worker --resources .build/macos-resources/voice
 rustup target add x86_64-apple-darwin
+INVENTORY_AI_RESOURCE_DIR="$PWD/.build/macos-resources/ai" \
+cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml mac_control_runtime_acceptance -- --ignored --nocapture
 if [[ "${INVENTORY_AI_ACCEPTANCE_REVIEW:-}" == "38598883688" ]]; then
   [[ -f .build/MACOS-AI-ACCEPTANCE.json ]] || python3.12 scripts/review-macos-acceptance.py
 else

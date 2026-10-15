@@ -1,6 +1,7 @@
 export type AssistantStatus = {
   configured: boolean; running: boolean; ready: boolean;
-  state: 'unconfigured' | 'stopped' | 'starting' | 'ready' | 'recovering' | 'failed';
+  state: 'unconfigured' | 'stopped' | 'starting' | 'ready' | 'recovering' | 'failed' | 'disabled' | 'timed_out';
+  enabled?: boolean; macos_controls?: boolean; retry_available?: boolean; startup_timeout_seconds?:number;
   message: string; voice_configured: boolean; voice_ready: boolean; voice_message?: string;
   voice_interrupted?: boolean;
 };

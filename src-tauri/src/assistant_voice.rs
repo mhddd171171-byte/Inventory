@@ -46,6 +46,8 @@ pub struct VoiceWorker {
 }
 
 impl VoiceWorker {
+    pub fn clear_failure(&mut self) { self.failures = 0; }
+    pub fn has_failed(&self) -> bool { self.failures > 0 && !self.desired.load(Ordering::SeqCst) }
     pub fn new() -> Self {
         Self { child: Arc::new(Mutex::new(None)), receiver: None, paths: None,
             ready: false, desired: Arc::new(AtomicBool::new(false)), interrupted: Arc::new(AtomicBool::new(false)), message: "Voice resources are unavailable.".into(),
@@ -99,6 +101,11 @@ impl VoiceWorker {
         self.ready = false;
         self.started = None;
         self.failures = self.failures.saturating_add(1);
+        if cfg!(target_os="macos") {
+            self.desired.store(false, Ordering::SeqCst);
+            self.message = format!("Voice stopped: {message}. Choose Retry AI to try again.");
+            return;
+        }
         self.retry_at = Instant::now() + Duration::from_secs(5u64.saturating_mul(1 << self.failures.min(4)));
         self.message = format!("Voice unavailable: {message} Automatic recovery will retry; typing remains available.");
     }
@@ -122,10 +129,10 @@ impl VoiceWorker {
                 }
             }
         }
-        if self.started.is_some_and(|t| !self.ready && t.elapsed() > Duration::from_secs(120)) {
+        if self.started.is_some_and(|t| !self.ready && t.elapsed() > Duration::from_secs(if cfg!(target_os="macos") {1200} else {120})) {
             self.failed("the speech model did not finish loading".into());
         }
-        if self.receiver.is_none() && Instant::now() >= self.retry_at {
+        if self.desired.load(Ordering::SeqCst) && self.receiver.is_none() && Instant::now() >= self.retry_at {
             if let Err(error) = self.spawn() { self.failed(error); }
         }
     }

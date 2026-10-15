@@ -1,5 +1,7 @@
 mod store;
 mod assistant;
+#[cfg(any(target_os="macos",test))]
+mod desktop_settings;
 #[cfg(test)]
 mod assistant_acceptance;
 
@@ -11,6 +13,10 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 struct AppState {
+    #[cfg(target_os="macos")]
+    preferences: Mutex<desktop_settings::Preferences>,
+    #[cfg(target_os="macos")]
+    data_dir: PathBuf,
     store: Mutex<Store>,
     assistant: Mutex<Assistant>,
     assistant_status: Mutex<Value>,
@@ -64,13 +70,31 @@ fn write_config(data_dir: &Path, config: &Value) -> Result<(), String> {
 fn cached_status(state: &AppState) -> Result<Value, String> { let mut status=state.assistant_status.lock().map_err(lock_error)?.clone();status["voice_interrupted"]=json!(state.voice_shutdown.interrupted());Ok(status) }
 fn cache_status(state: &AppState, status: Value) { if let Ok(mut cached) = state.assistant_status.lock() { *cached = status; } }
 
+#[cfg(target_os="macos")]
+fn remember_ai_pause(state: &AppState, status: &Value) {
+    if status["enabled"] == false && matches!(status["state"].as_str(),Some("failed"|"timed_out")) {
+        if let Ok(mut preferences) = state.preferences.lock() {
+            if preferences.ai_enabled {
+                preferences.ai_enabled = false;
+                preferences.ai_pause_reason = status["state"].as_str().unwrap_or("failed").into();
+                if let Err(error) = preferences.save(&state.data_dir) { eprintln!("{error}"); }
+            }
+        }
+    }
+}
+
 fn start_assistant_manager(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
         while !state.manager_shutdown.load(Ordering::Acquire) {
             // Model inference/voice may own this lock. Cached status and SQLite
             // have separate locks so inventory stays usable throughout loading.
-            if let Ok(mut assistant) = state.assistant.try_lock() { cache_status(&state, assistant.tick()); }
+            if let Ok(mut assistant) = state.assistant.try_lock() {
+                let status = assistant.tick();
+                #[cfg(target_os="macos")]
+                remember_ai_pause(&state, &status);
+                cache_status(&state, status);
+            }
             for _ in 0..10 {
                 if state.manager_shutdown.load(Ordering::Acquire) { return; }
                 std::thread::sleep(Duration::from_millis(100));
@@ -99,6 +123,45 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
     if !payload.is_object() { return Err("Invalid request.".into()); }
     let state = app.state::<AppState>();
     match action {
+        #[cfg(target_os="macos")]
+        "settings_get" => Ok(serde_json::to_value(state.preferences.lock().map_err(lock_error)?.clone()).map_err(|e|e.to_string())?),
+        #[cfg(target_os="macos")]
+        "settings_theme" => {
+            let mut saved = state.preferences.lock().map_err(lock_error)?;
+            let mut next = saved.clone();
+            next.set_theme(&field(&payload,"theme")?)?;
+            next.save(&state.data_dir)?; *saved = next;
+            Ok(json!({"theme":saved.theme}))
+        },
+        #[cfg(target_os="macos")]
+        "assistant_set_enabled" => {
+            let enabled = payload["enabled"].as_bool().ok_or("AI enabled must be true or false.")?;
+            // Match the manager's assistant -> preferences lock order. A retry
+            // cannot otherwise race the manager persisting the previous failure.
+            let mut starting = if enabled {Some(state.assistant.lock().map_err(lock_error)?)} else {None};
+            {
+                let mut preferences = state.preferences.lock().map_err(lock_error)?;
+                let mut next = preferences.clone();
+                next.ai_enabled = enabled; next.ai_pause_reason = if enabled {String::new()} else {"manual".into()};
+                next.save(&state.data_dir)?; *preferences = next;
+            }
+            if !enabled {
+                state.runtime_shutdown.pause();
+                let mut status = cached_status(&state)?;
+                status["enabled"]=json!(false);status["ready"]=json!(false);status["running"]=json!(false);status["state"]=json!("disabled");status["retry_available"]=json!(false);status["voice_ready"]=json!(false);
+                status["voice"]["active"]=json!(false);status["voice"]["ready"]=json!(false);
+                status["message"]=json!("AI is turned off. Inventory management remains available.");
+                cache_status(&state,status.clone());
+                return Ok(status);
+            }
+            let config = resolve_config(&serde_json::to_value(state.preferences.lock().map_err(lock_error)?.clone()).map_err(|e| e.to_string())?, &bundled_directory(&app.path().resource_dir().map_err(|e|e.to_string())?, std::env::current_exe().map_err(|e|e.to_string())?.parent().ok_or("Application directory unavailable")?, "ai"));
+            let assistant = starting.as_mut().ok_or("AI startup state unavailable")?;
+            if !assistant.status()["configured"].as_bool().unwrap_or(false) {
+                assistant.set_configuration(config["server_path"].as_str().unwrap().into(),config["model_path"].as_str().unwrap().into())?;
+            }
+            assistant.request_start();
+            let status = assistant.status();cache_status(&state,status.clone());Ok(status)
+        },
         "assistant_status" => cached_status(&state),
         "voice_status" => Ok(cached_status(&state)?["voice"].clone()),
         "assistant_new_conversation" => {
@@ -107,6 +170,8 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             Ok(json!({"ok":true}))
         },
         "assistant_ask" => {
+            #[cfg(target_os="macos")]
+            if !state.runtime_shutdown.ai_enabled() { return Err("AI is turned off. Enable it in Settings or choose Retry AI.".into()); }
             let question = field(&payload, "question")?;
             let session = session_id(&payload)?;
             if question.chars().count() > 1000 { return Err("Please ask a shorter question (up to 1,000 characters).".into()); }
@@ -115,10 +180,14 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             // model has no database connection, write tool, SQL or OS interface.
             let snapshot = state.store.lock().map_err(lock_error)?.execute("snapshot", json!({}))?;
             let result = assistant.ask(&question, &session, &snapshot);
+            #[cfg(target_os="macos")]
+            remember_ai_pause(&state, &assistant.status());
             cache_status(&state, assistant.status());
             result
         },
         "voice_start" => {
+            #[cfg(target_os="macos")]
+            if !state.runtime_shutdown.ai_enabled() { return Err("AI and voice are turned off. Enable AI in Settings.".into()); }
             let mut assistant = state.assistant.lock().map_err(lock_error)?;
             let result = assistant.start_voice();
             cache_status(&state, assistant.status());
@@ -135,6 +204,8 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             Ok(json!({"ok":true}))
         },
         "voice_listen" | "voice_speak" => {
+            #[cfg(target_os="macos")]
+            if !state.runtime_shutdown.ai_enabled() { return Err("AI and voice are turned off.".into()); }
             let language = payload["language"].as_str().unwrap_or("auto");
             let mut assistant = state.assistant.lock().map_err(lock_error)?;
             let result = if action == "voice_listen" { assistant.listen_voice(language) } else { assistant.speak_voice(&field(&payload, "text")?, language,payload["input_language"].as_str().unwrap_or("auto")) };
@@ -188,17 +259,32 @@ pub fn run() {
             let bundled = bundled_directory(&resource_dir, executable_dir, "ai");
             let voice = bundled_directory(&resource_dir, executable_dir, "voice");
             let saved: Value = fs::read(data_dir.join("settings.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(json!({}));
+            #[cfg(target_os="macos")]
+            let preferences = desktop_settings::Preferences::load(&data_dir);
             let config = resolve_config(&saved, &bundled);
             let mut assistant = Assistant::new().map_err(std::io::Error::other)?;
             assistant.set_performance(config["context_size"].as_u64().unwrap_or(4096) as u32, config["cpu_threads"].as_u64().unwrap_or(4) as u32).map_err(std::io::Error::other)?;
-            if assistant.set_configuration(config["server_path"].as_str().unwrap().into(), config["model_path"].as_str().unwrap().into()).is_ok() { assistant.request_start(); }
+            let configured = assistant.set_configuration(config["server_path"].as_str().unwrap().into(), config["model_path"].as_str().unwrap().into()).is_ok();
+            #[cfg(target_os="macos")]
+            if !preferences.ai_enabled { assistant.restore_paused(&preferences.ai_pause_reason); }
+            else if configured { assistant.request_start(); }
+            #[cfg(not(target_os="macos"))]
+            if configured { assistant.request_start(); }
             if let Err(error)=assistant.configure_bundled_voice(voice.join("runtime").join(runtime_name("voice-worker")).to_string_lossy().into_owned(), voice.to_string_lossy().into_owned()) { eprintln!("Bundled voice initialization: {error}; resource directory: {}",voice.display()); }
             let status = assistant.status();
             let runtime_shutdown = assistant.shutdown_handle();
             let voice_shutdown = assistant.voice_shutdown_handle();
             let store = Store::open(&data_dir.join("inventory.db")).map_err(std::io::Error::other)?;
+            #[cfg(not(target_os="macos"))]
             if let Err(error) = write_config(&data_dir, &config) { eprintln!("{error}"); }
-            app.manage(AppState { store: Mutex::new(store), assistant: Mutex::new(assistant), assistant_status: Mutex::new(status), runtime_shutdown, voice_shutdown, manager_shutdown: AtomicBool::new(false) });
+            #[cfg(target_os="macos")]
+            if let Err(error) = preferences.save(&data_dir) { eprintln!("{error}"); }
+            app.manage(AppState {
+                #[cfg(target_os="macos")]
+                preferences: Mutex::new(preferences),
+                #[cfg(target_os="macos")]
+                data_dir: data_dir.clone(),
+                store: Mutex::new(store), assistant: Mutex::new(assistant), assistant_status: Mutex::new(status), runtime_shutdown, voice_shutdown, manager_shutdown: AtomicBool::new(false) });
             start_assistant_manager(app.handle().clone());
             Ok(())
         })

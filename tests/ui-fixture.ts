@@ -3,6 +3,9 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import type { Product, Snapshot, StockEntry, Sale, SaleLine } from '../src/types';
 import { currentMonth } from '../src/utils';
 const state={calls:[] as {action:string;payload:any}[],products:[] as Product[],entries:[] as StockEntry[],sales:[] as Sale[],lines:[] as SaleLine[],failNext:'',ready:false,voiceActive:false,voiceQueue:['How many screens do we have?','How many did we sell this month?'],interruptNext:null as {text:string;language:string}|null,savedPdfs:[] as number[][],savedExcels:[] as number[][]};
+const macosControls=new URLSearchParams(location.search).has('mac');
+const preferences=JSON.parse(sessionStorage.getItem('mac-preferences')||'{"ai_enabled":true,"theme":"system","ai_pause_reason":""}');
+Object.assign(state,{preferences,macosControls});
 Object.assign(window,{isTauri:true,__uiTest:state});
 const now=()=>new Date().toISOString();
 const sum=(rows:any[],key:string)=>rows.reduce((n,r)=>n+(r[key]??0),0);
@@ -18,7 +21,10 @@ mockIPC(async(command,args)=>{
   if(state.failNext===action){state.failNext='';throw new Error('Deliberate test backend rejection');}
   if(action==='snapshot')return snapshot(payload.month);
   if(action==='status')return {ready:true,schema_version:2};
-  if(action==='assistant_status')return {configured:true,running:true,ready:state.ready,state:state.ready?'ready':'starting',message:'Starting local AI',voice_configured:true,voice_ready:state.voiceActive,voice:{configured:true,ready:state.voiceActive,active:state.voiceActive,message:'Voice ready'}};
+  if(action==='assistant_status')return {configured:true,enabled:preferences.ai_enabled,macos_controls:macosControls,retry_available:!preferences.ai_enabled&&['failed','timed_out'].includes(preferences.ai_pause_reason),startup_timeout_seconds:1200,running:preferences.ai_enabled,ready:state.ready&&preferences.ai_enabled,state:preferences.ai_enabled?(state.ready?'ready':'starting'):(preferences.ai_pause_reason==='manual'?'disabled':preferences.ai_pause_reason),message:preferences.ai_enabled?'Starting local AI':'AI is off. Inventory remains available.',voice_configured:true,voice_ready:state.voiceActive,voice:{configured:true,ready:state.voiceActive,active:state.voiceActive,message:'Voice ready'}};
+  if(action==='settings_get')return structuredClone(preferences);
+  if(action==='settings_theme'){preferences.theme=payload.theme;sessionStorage.setItem('mac-preferences',JSON.stringify(preferences));return {theme:preferences.theme};}
+  if(action==='assistant_set_enabled'){preferences.ai_enabled=payload.enabled;preferences.ai_pause_reason=payload.enabled?'':'manual';state.ready=false;state.voiceActive=false;sessionStorage.setItem('mac-preferences',JSON.stringify(preferences));return {configured:true,enabled:preferences.ai_enabled,macos_controls:macosControls,retry_available:false,running:preferences.ai_enabled,ready:false,state:payload.enabled?'starting':'disabled',message:payload.enabled?'Starting AI':'AI is off',voice_configured:true,voice_ready:false};}
   if(action==='save_product'){
     const old=state.products.find(p=>p.id===payload.product.id);
     if(state.products.some(p=>p.item_code===payload.product.item_code&&p!==old))throw new Error('This Item Code already belongs to another product.');

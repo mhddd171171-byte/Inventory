@@ -27,8 +27,18 @@ pub struct RuntimeShutdown {
     child: Arc<Mutex<Option<Child>>>,
     closing: Arc<AtomicBool>,
     voice: VoiceShutdown,
+    allowed: Arc<AtomicBool>,
+    user_disabled: Arc<AtomicBool>,
 }
 impl RuntimeShutdown {
+    /// Cancel owned inference/voice without waiting for the inference mutex.
+    pub fn pause(&self) {
+        self.user_disabled.store(true, Ordering::Release);
+        self.allowed.store(false, Ordering::Release);
+        terminate_owned(&self.child);
+        self.voice.stop();
+    }
+    pub fn ai_enabled(&self) -> bool { self.allowed.load(Ordering::Acquire) }
     pub fn shutdown(&self) {
         self.closing.store(true, Ordering::Release);
         terminate_owned(&self.child);
@@ -60,6 +70,10 @@ pub struct Assistant {
     started_at: Option<Instant>,
     healthy_since: Option<Instant>,
     unhealthy_probes: u32,
+    allowed: Arc<AtomicBool>,
+    user_disabled: Arc<AtomicBool>,
+    manual_retry: bool,
+    startup_timeout: Duration,
 }
 impl Assistant {
     pub fn new() -> Result<Self, String> {
@@ -92,6 +106,10 @@ impl Assistant {
             started_at: None,
             healthy_since: None,
             unhealthy_probes: 0,
+            allowed: Arc::new(AtomicBool::new(false)),
+            user_disabled: Arc::new(AtomicBool::new(false)),
+            manual_retry: cfg!(target_os = "macos"),
+            startup_timeout: Duration::from_secs(if cfg!(target_os = "macos") { 1200 } else { 120 }),
             message: "The local assistant is being prepared.".into(),
         })
     }
@@ -134,6 +152,8 @@ impl Assistant {
             child: self.child.clone(),
             closing: self.closing.clone(),
             voice: self.voice.shutdown_handle(),
+            allowed: self.allowed.clone(),
+            user_disabled: self.user_disabled.clone(),
         }
     }
     pub fn set_configuration(
@@ -189,7 +209,15 @@ impl Assistant {
         if self.closing.load(Ordering::Acquire) {
             return;
         }
+        if self.manual_retry && !self.allowed.load(Ordering::Acquire) {
+            terminate_owned(&self.child);
+            self.running=false;self.ready=false;self.started_at=None;self.healthy_since=None;
+        }
         self.desired = true;
+        self.allowed.store(true, Ordering::Release);
+        self.user_disabled.store(false, Ordering::Release);
+        self.voice.clear_failure();
+        self.failures = 0;
         if !self.running && self.server_path.is_some() {
             self.state = "starting";
             self.retry_at = Instant::now();
@@ -204,11 +232,23 @@ impl Assistant {
     /// Cached status: no network or process waits.
     pub fn status(&self) -> Value {
         let v = self.voice.status();
-        json!({"configured":self.server_path.is_some(),"running":self.running,"ready":self.ready,"state":self.state,"message":self.message,"attempts":self.failures,"retry_in_seconds":self.retry_at.saturating_duration_since(Instant::now()).as_secs(),"voice":v,"voice_configured":v["configured"],"voice_ready":v["ready"],"voice_message":v["message"]})
+        let disabled=self.manual_retry && !self.allowed.load(Ordering::Acquire);
+        let state=if disabled && self.user_disabled.load(Ordering::Acquire) {"disabled"} else {self.state};
+        let ready=self.ready && !disabled;
+        let running=self.running && !disabled;
+        json!({"configured":self.server_path.is_some(),"running":running,"ready":ready,"state":state,"message":self.message,"enabled":self.allowed.load(Ordering::Acquire),"macos_controls":cfg!(target_os="macos"),"retry_available":self.manual_retry && matches!(state,"failed"|"timed_out"),"startup_timeout_seconds":self.startup_timeout.as_secs(),"attempts":self.failures,"retry_in_seconds":self.retry_at.saturating_duration_since(Instant::now()).as_secs(),"voice":v,"voice_configured":v["configured"],"voice_ready":v["ready"],"voice_message":v["message"]})
     }
     /// Background manager tick. Health calls take at most 200ms, once per second.
     pub fn tick(&mut self) -> Value {
+        if self.manual_retry && !self.allowed.load(Ordering::Acquire) {
+            if self.user_disabled.load(Ordering::Acquire) { self.stop(); }
+            return self.status();
+        }
         self.voice.tick();
+        if self.manual_retry && self.voice.has_failed() {
+            self.pause_after_failure("The voice assistant could not start. AI was turned off; choose Retry AI when ready.".into(), false);
+            return self.status();
+        }
         if self.closing.load(Ordering::Acquire) {
             self.ready = false;
             self.running = false;
@@ -247,6 +287,10 @@ impl Assistant {
             }
             return self.status();
         }
+        if self.manual_retry && self.loading_timed_out(now) {
+            self.pause_after_failure("AI did not finish loading within 20 minutes. It has been turned off. Choose Retry AI to try again.".into(), true);
+            return self.status();
+        }
         if now < self.next_probe {
             return self.status();
         }
@@ -275,7 +319,7 @@ impl Assistant {
             self.ready = false;
             if self
                 .started_at
-                .is_some_and(|s| s.elapsed() > Duration::from_secs(120))
+                .is_some_and(|s| s.elapsed() > self.startup_timeout)
                 || self.healthy_since.is_some()
             {
                 self.schedule_recovery("The local model is not responding.".into());
@@ -369,6 +413,11 @@ impl Assistant {
         Ok(())
     }
     fn schedule_recovery(&mut self, error: String) {
+        if self.manual_retry {
+            if self.user_disabled.load(Ordering::Acquire) { self.stop(); }
+            else { self.pause_after_failure(format!("{error} AI is off. Choose Retry AI to try again."), false); }
+            return;
+        }
         terminate_owned(&self.child);
         self.running = false;
         self.ready = false;
@@ -381,13 +430,36 @@ impl Assistant {
         self.healthy_since = None;
     }
     pub fn stop(&mut self) {
+        self.allowed.store(false, Ordering::Release);
+        self.user_disabled.store(true, Ordering::Release);
         self.desired = false;
         terminate_owned(&self.child);
         self.voice.stop();
         self.ready = false;
         self.running = false;
-        self.state = "stopped";
-        self.message = "The local assistant is stopped.".into();
+        self.state = if self.manual_retry { "disabled" } else { "stopped" };
+        self.message = "AI is turned off. Inventory management remains available.".into();
+    }
+    fn loading_timed_out(&self, now: Instant) -> bool {
+        !self.ready && self.healthy_since.is_none() && self.started_at.is_some_and(|s| now.saturating_duration_since(s) >= self.startup_timeout)
+    }
+    pub fn restore_paused(&mut self, reason: &str) {
+        self.stop();
+        if matches!(reason,"failed"|"timed_out") {
+            self.user_disabled.store(false, Ordering::Release);
+            self.state = if reason=="timed_out" { "timed_out" } else { "failed" };
+            self.message = "AI remains off after the previous failed attempt. Choose Retry AI to try again.".into();
+        }
+    }
+    fn pause_after_failure(&mut self, message: String, timeout: bool) {
+        self.desired = false;
+        self.allowed.store(false, Ordering::Release);
+        terminate_owned(&self.child);
+        self.voice.stop();
+        self.running = false; self.ready = false;
+        self.state = if timeout { "timed_out" } else { "failed" };
+        self.message = message;
+        self.started_at = None; self.healthy_since = None;
     }
     pub fn clear_context(&mut self, key: &str) {
         self.contexts.remove(key);
@@ -427,7 +499,7 @@ impl Assistant {
             Ok(r) => r,
             Err(_) => {
                 self.schedule_recovery("The assistant's connection was interrupted.".into());
-                return Err("The local assistant is recovering. Your conversation has been kept; try again shortly.".into());
+                return Err(if self.manual_retry { "AI was turned off after a connection failure. Choose Retry AI; your conversation has been kept." } else { "The local assistant is recovering. Your conversation has been kept; try again shortly." }.into());
             }
         };
         if !response.status().is_success() {
@@ -559,6 +631,35 @@ fn local_path(input: &str, directory: bool) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod runtime_tests {
     use super::*;
+    fn manual_assistant() -> Assistant {
+        let mut a = Assistant::new().unwrap();a.manual_retry=true;a.startup_timeout=Duration::from_secs(1200);a
+    }
+    #[test]
+    fn mac_failure_stays_off_until_explicit_retry_and_keeps_context() {
+        let mut a = manual_assistant();a.server_path=Some(std::env::current_exe().unwrap());
+        a.contexts.insert("kept".into(),Conversation::default());a.request_start();a.schedule_recovery("failed".into());
+        for _ in 0..30 {assert_eq!(a.tick()["state"],"failed");}
+        assert!(!a.status()["enabled"].as_bool().unwrap());assert!(a.status()["retry_available"].as_bool().unwrap());assert_eq!(a.contexts.len(),1);
+        a.request_start();assert_eq!(a.status()["enabled"],true);assert_eq!(a.status()["state"],"starting");
+    }
+    #[test]
+    fn mac_startup_has_one_twenty_minute_deadline_without_automatic_retry() {
+        let mut a = manual_assistant();a.request_start();a.running=true;a.server_path=Some(std::env::current_exe().unwrap());
+        let now=Instant::now();a.started_at=Some(now);assert!(!a.loading_timed_out(now+Duration::from_secs(1199)));assert!(a.loading_timed_out(now+Duration::from_secs(1200)));
+        a.started_at=Some(now-Duration::from_secs(1201));a.next_probe=now+Duration::from_secs(3600);
+        assert_eq!(a.tick()["state"],"timed_out");assert_eq!(a.tick()["running"],false);assert_eq!(a.status()["retry_available"],true);
+        a.restore_paused("timed_out");assert_eq!(a.tick()["state"],"timed_out");assert_eq!(a.status()["enabled"],false);
+    }
+    #[test]
+    fn mac_manual_off_cannot_be_undone_by_a_late_inference_failure() {
+        let mut a = manual_assistant();a.request_start();let handle=a.shutdown_handle();handle.pause();
+        a.schedule_recovery("late inference error".into());assert_eq!(a.tick()["state"],"disabled");assert_eq!(a.status()["retry_available"],false);assert!(!handle.ai_enabled());
+    }
+    #[test]
+    fn immediate_retry_after_external_pause_starts_a_fresh_attempt() {
+        let mut a=manual_assistant();a.server_path=Some(std::env::current_exe().unwrap());a.request_start();a.running=true;a.ready=true;a.healthy_since=Some(Instant::now());
+        a.shutdown_handle().pause();a.request_start();assert_eq!(a.status()["state"],"starting");assert_eq!(a.status()["ready"],false);assert_eq!(a.status()["running"],false);assert!(a.healthy_since.is_none());
+    }
     #[test]
     fn cached_status_does_not_probe() {
         let a = Assistant::new().unwrap();
@@ -575,8 +676,32 @@ mod runtime_tests {
         a.schedule_recovery("test".into());
         assert_eq!(a.contexts.len(), 1);
         assert!(!a.ready);
-        assert!(a.retry_at > Instant::now());
-        assert_eq!(a.status()["state"], "recovering");
+        if cfg!(target_os="macos") {
+            assert_eq!(a.status()["state"], "failed");assert_eq!(a.status()["retry_available"],true);
+        } else {
+            assert!(a.retry_at > Instant::now());assert_eq!(a.status()["state"], "recovering");
+        }
+    }
+    #[cfg(target_os="macos")]
+    #[test]
+    #[ignore = "Uses the bundled native Mac runtime; no inference or downloads"]
+    fn mac_control_runtime_acceptance() {
+        let resources=PathBuf::from(std::env::var_os("INVENTORY_AI_RESOURCE_DIR").expect("Native resources required"));
+        let mut a=Assistant::new().unwrap();
+        a.set_configuration(resources.join("llama-server").to_string_lossy().into(),resources.join("Qwen3-4B-Instruct-2507-Q4_K_M.gguf").to_string_lossy().into()).unwrap();
+        fn ready(a:&mut Assistant) {
+            let deadline=Instant::now()+Duration::from_secs(120);
+            while a.tick()["ready"]!=true {assert!(Instant::now()<deadline,"{}",a.status());std::thread::sleep(Duration::from_millis(200));}
+        }
+        a.request_start();ready(&mut a);
+        let mut unrelated=Command::new("/bin/sleep").arg("60").spawn().unwrap();
+        let control=a.shutdown_handle();control.pause();assert_eq!(a.tick()["state"],"disabled");assert!(a.owned_runtime_id().is_none());assert!(unrelated.try_wait().unwrap().is_none());let _=unrelated.kill();let _=unrelated.wait();
+        for _ in 0..10 {assert_eq!(a.tick()["running"],false);}
+        a.request_start();ready(&mut a);a.simulate_owned_runtime_crash();assert_eq!(a.tick()["state"],"failed");assert!(a.owned_runtime_id().is_none());
+        for _ in 0..10 {assert_eq!(a.tick()["running"],false);}
+        a.request_start();ready(&mut a);a.ready=false;a.healthy_since=None;a.started_at=Some(Instant::now()-Duration::from_secs(1201));assert_eq!(a.tick()["state"],"timed_out");assert!(a.owned_runtime_id().is_none());
+        let report=json!({"passed":true,"actual_native_runtime":true,"manual_stop_killed_owned_runtime":true,"unrelated_process_preserved":true,"explicit_retry_started_runtime":true,"crash_did_not_restart":true,"simulated_20_minute_deadline_stopped_runtime":true});
+        let output=resources.parent().unwrap().parent().unwrap().join("MACOS-AI-CONTROLS.json");std::fs::write(output,serde_json::to_vec_pretty(&report).unwrap()).unwrap();
     }
     #[test]
     fn network_model_paths_are_rejected() {

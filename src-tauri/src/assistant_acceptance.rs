@@ -462,6 +462,12 @@ fn independent_assistant_acceptance() {
     assert_eq!(after, changed, "Assistant must never alter SQLite");
     let old_pid = eval.assistant.owned_runtime_id();
     eval.assistant.simulate_owned_runtime_crash();
+    #[cfg(target_os="macos")]
+    {
+        assert_eq!(eval.assistant.tick()["state"],"failed");
+        assert_eq!(eval.assistant.status()["retry_available"],true);
+        eval.assistant.request_start();
+    }
     let recovering = Instant::now();
     while eval.assistant.tick()["ready"] != true {
         assert!(

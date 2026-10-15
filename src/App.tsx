@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowRight, Boxes, ChevronRight, Database, Download, FileText, LayoutDashboard, Package, PackageX, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowRight, Boxes, ChevronRight, Database, Download, FileText, LayoutDashboard, Package, PackageX, Plus, RefreshCw, Search, Settings, Sparkles } from 'lucide-react';
 import { call, isDesktop } from './api';
 import type { AssistantStatus, Page, Product, Snapshot } from './types';
 import { currentMonth, dateTime, matchesProduct, money, monthLabel, stockLabel } from './utils';
@@ -8,6 +8,7 @@ import { ProductForm, StockEntryPage, StockOutPage } from './StockForms';
 import ReportsPage from './ReportsPage';
 import SearchPage from './SearchPage';
 import AssistantPanel, { aiLabel } from './AssistantPanel';
+import SettingsPanel, { applyTheme, type Preferences } from './SettingsPanel';
 
 const navigation:[Page,typeof Package][] = [['Dashboard',LayoutDashboard],['Products',Boxes],['Out of Stock',PackageX],['Stock Entry',ArrowDownLeft],['Stock Out',ArrowUpRight],['Search',Search],['Reports',FileText],['AI Assistant',Sparkles]];
 const descriptions:Record<Page,string> = {
@@ -20,8 +21,9 @@ const descriptions:Record<Page,string> = {
   Search:'Find a CR, item, product model or stock movement, and export matching records.',
   'AI Assistant':'Ask about inventory and sales, in English or Arabic.',
 };
-type Modal = {kind:'product';product?:Product}|{kind:'detail';product:Product}|{kind:'backup'}|null;
+type Modal = {kind:'product';product?:Product}|{kind:'detail';product:Product}|{kind:'backup'}|{kind:'settings'}|null;
 export default function App() {
+  const [aiBusy,setAiBusy] = useState(false);
   const [outSearch,setOutSearch] = useState('');
   const [page,setPage] = useState<Page>('Dashboard'),[snapshot,setSnapshot] = useState<Snapshot|null>(null),[status,setStatus] = useState<AssistantStatus|null>(null),[error,setError] = useState(''),[search,setSearch] = useState(''),[stockFilter,setStockFilter] = useState('all'),[modal,setModal] = useState<Modal>(null),[backupBusy,setBackupBusy] = useState(false),[backupResult,setBackupResult] = useState('');
   async function refresh() {const next = await call<Snapshot>('snapshot',{month:currentMonth()});setSnapshot(next);}
@@ -32,6 +34,21 @@ export default function App() {
     void poll();const timer = setInterval(poll,1000);
     return () => {live = false;clearInterval(timer);};
   },[]);
+  useEffect(() => {
+    if(!status?.macos_controls) return;
+    let live=true,theme:Preferences['theme']='system';
+    const media=window.matchMedia('(prefers-color-scheme: dark)');
+    const update=()=>applyTheme(theme);
+    const changed=(event:Event)=>{theme=(event as CustomEvent<Preferences['theme']>).detail;update();};
+    call<Preferences>('settings_get').then(p=>{if(live){theme=p.theme;update();}}).catch(e=>{if(live)setError(errorMessage(e));});
+    media.addEventListener('change',update);window.addEventListener('inventory-theme',changed);
+    return()=>{live=false;media.removeEventListener('change',update);window.removeEventListener('inventory-theme',changed);};
+  },[status?.macos_controls]);
+  async function retryAI() {
+    setAiBusy(true);setError('');
+    try {setStatus(await call<AssistantStatus>('assistant_set_enabled',{enabled:true}));}
+    catch(e){setError(errorMessage(e));}finally{setAiBusy(false);}
+  }
   async function backup(action:'backup'|'restore') {
     setBackupBusy(true);setBackupResult('');setError('');
     try {const result = await call<{path?:string;restored?:boolean;pre_restore_backup?:string;cancelled?:boolean}>(action);if(!result.cancelled) {if(action === 'restore') {await refresh();setBackupResult(`Backup restored. A copy of the previous database was saved to ${result.pre_restore_backup}.`);} else setBackupResult(`Backup saved to ${result.path}.`);}}
@@ -43,7 +60,7 @@ export default function App() {
   const select = (product:Product) => setModal({kind:'detail',product});
   return <div className="app-shell">
     <aside className="sidebar"><div className="brand"><span className="brand-icon"><Boxes size={25}/></span><div>Inventory<span className="brand-sub">AL MOHTARIF REPAIR CENTER</span></div></div><div className="workspace-label">WORKSPACE</div><nav>{navigation.map(([name,Icon]) => <button key={name} aria-label={name} className={`nav-item ${page === name ? 'active' : ''}`} onClick={() => {setPage(name);setError('');if(name === 'Out of Stock') setOutSearch('');}}><Icon size={18}/>{name}{name === 'Out of Stock' && outOfStock.length > 0 && <span className="nav-alert-count" data-testid="out-of-stock-count" role="status" aria-label={`${outOfStock.length} out-of-stock ${outOfStock.length === 1 ? 'product' : 'products'}`}>{outOfStock.length}</span>}{name === 'AI Assistant' && <span className="tiny-pill">LOCAL</span>}</button>)}</nav><div className="local-card"><div><i className="status-dot"/><strong>Stored on this computer</strong></div><p>Your inventory and AI work offline.</p><button className="text-link" onClick={() => {setBackupResult('');setModal({kind:'backup'});}}><Database size={14}/>Backup & restore</button></div></aside>
-    <main><header className="topbar"><div><Package size={15}/><span>Al Mohtarif Repair Center</span><ChevronRight size={12}/><span>{page}</span></div><div className="topbar-right"><span className={`ai-status ${status?.ready ? '' : status?.running ? 'starting' : 'unavailable'}`}><i className="status-dot"/>{aiLabel(status)}</span><span className="offline"><i className="status-dot"/>Offline</span></div></header><div className="page-content">
+    <main><header className="topbar"><div><Package size={15}/><span>Al Mohtarif Repair Center</span><ChevronRight size={12}/><span>{page}</span></div><div className="topbar-right">{status?.macos_controls&&<button className="btn small" aria-label="Settings" onClick={()=>setModal({kind:'settings'})}><Settings size={15}/>Settings</button>}{status?.retry_available&&<button className="btn small" disabled={aiBusy} onClick={()=>void retryAI()}>Retry AI</button>}<span className={`ai-status ${status?.ready ? '' : status?.running ? 'starting' : 'unavailable'}`}><i className="status-dot"/>{aiLabel(status)}</span><span className="offline"><i className="status-dot"/>Offline</span></div></header><div className="page-content">
       <div className="page-heading"><div><span className="eyebrow">INVENTORY MANAGER</span><h1>{page}</h1><p>{descriptions[page]}</p></div><div className="heading-actions">{page === 'Products' && <button className="btn primary" disabled={!snapshot} onClick={() => setModal({kind:'product'})}><Plus size={16}/>Add product</button>}{page !== 'AI Assistant' && <button className="btn" onClick={() => void refresh().catch(e => setError(errorMessage(e)))}><RefreshCw size={15}/>Refresh</button>}</div></div>
       <Notice text={error}/>{!isDesktop && <Notice text="Open the installed desktop application to use your local database."/>}{!snapshot && <div className="panel"><Empty title={error ? 'Database unavailable' : 'Opening your inventory…'} text={error || 'Loading local records.'}/></div>}
       {snapshot && <>
@@ -66,6 +83,7 @@ export default function App() {
     </div></main>
     {modal?.kind === 'product' && <ProductForm product={modal.product} saved={refresh} close={() => setModal(null)}/>}
     {modal?.kind === 'detail' && <Dialog title="Product details" close={() => setModal(null)}><div className="dialog-body"><h2 dir="auto">{modal.product.name}</h2><p className="muted" dir="auto">{modal.product.model_description}</p><dl className="details"><dt>Item Code</dt><dd>{modal.product.item_code}</dd><dt>Available units</dt><dd>{modal.product.quantity}</dd><dt>Purchase value</dt><dd>{money(modal.product.inventory_value_baisa)}</dd><dt>Stock status</dt><dd>{stockLabel(modal.product.quantity)}</dd></dl><h3>Stock entry history</h3><StockEntriesTable entries={snapshot?.entries.filter(e=>e.product_id===modal.product.id)??[]}/><h3>Stock Out history</h3><SalesTable lines={snapshot?.sale_lines.filter(l => l.product_id === modal.product.id) ?? []}/></div><div className="dialog-actions"><button className="btn" onClick={() => setModal(null)}>Close</button></div></Dialog>}
+    {modal?.kind === 'settings' && <Dialog title="Settings" close={()=>setModal(null)}><SettingsPanel status={status} onStatus={setStatus}/><div className="dialog-actions"><button className="btn" onClick={()=>setModal(null)}>Close</button></div></Dialog>}
     {modal?.kind === 'backup' && <Dialog title="Local database backup & restore" close={() => {if(!backupBusy) setModal(null);}}><div className="dialog-body"><Notice text={error}/><Notice text={backupResult} kind="success"/><p>Create a backup of all products, stock batches and CR sales. Keep backups in a safe location on your computer or removable drive.</p><button className="btn primary" disabled={backupBusy} onClick={() => void backup('backup')}><Download size={16}/>Create backup</button><h2>Restore a backup</h2><p>Restore replaces the current database with the selected backup. The application validates it and saves a recoverable copy of the current database first.</p><button className="btn" disabled={backupBusy} onClick={() => void backup('restore')}>Choose backup to restore</button></div><div className="dialog-actions"><button className="btn" disabled={backupBusy} onClick={() => setModal(null)}>Close</button></div></Dialog>}
   </div>;
 }

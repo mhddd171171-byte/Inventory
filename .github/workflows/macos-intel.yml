@@ -89,9 +89,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3.12 scripts/review-macos-acceptance.py
+      - name: Test interface and native Mac settings controls
+        run: |
+          npm ci
+          npm test
+          npm run build
+          rustup target add x86_64-apple-darwin
+          cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
       - name: Build native application and DMG
         env:
           GH_TOKEN: ${{ github.token }}
+          INVENTORY_PRECHECKED: 'true'
         run: bash scripts/build-macos-intel.sh
       - name: Verify packaged Intel resources and offline helpers
         run: python3.12 scripts/verify-macos-package.py
@@ -110,6 +118,7 @@ jobs:
             .build/MACOS-AI-ACCEPTANCE.json
             .build/MACOS-SPEECH-SMOKE.json
             .build/MACOS-APP-SMOKE.json
+            .build/MACOS-AI-CONTROLS.json
           compression-level: 0
           if-no-files-found: error
           retention-days: 14
@@ -123,6 +132,7 @@ jobs:
             .build/MACOS-PACKAGE-VERIFICATION.json
             .build/MACOS-AI-ACCEPTANCE.json
             .build/MACOS-APP-SMOKE.json
+            .build/MACOS-AI-CONTROLS.json
             .build/mac-app-stderr.log
             .build/MACOS-MODEL-PREFLIGHT.log
             .build/MACOS-MODEL-PREFLIGHT.json

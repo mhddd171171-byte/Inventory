@@ -1,4 +1,21 @@
 @import "tailwindcss";
+.preference-section { display: grid; gap: 13px; padding: 5px 0 20px; }
+.preference-section + .preference-section { border-top: 1px solid #dce1dc; padding-top: 20px; }
+.preference-section p { line-height: 1.65; }
+.ai-toggle { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.ai-toggle input { width: 20px; height: 20px; accent-color: #527351; }
+html[data-theme="light"] { color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; color: #e2ebe5; background: #141c18; }
+html[data-theme="dark"] :is(.app-shell, main, .page-content) { background: #141c18; }
+html[data-theme="dark"] :is(.sidebar,.topbar,.panel,.stat-card,dialog,.dialog-head,input,select,textarea,.btn,.searchbox,.chat-compose,.chat-panel,.chat-messages) { background: #1e2923; color: #e2ebe5; border-color: #46554b; }
+html[data-theme="dark"] :is(.brand,h1,h2,h3,.stat-card strong,.product-name,.number,.details dd,.report-title) { color: #eef5ee; }
+html[data-theme="dark"] :is(p,small,.muted,.eyebrow,.count,.table-footer,.page-footer,.topbar,.nav-item,.field>span,.text-link,.stat-card span,th,td,.brand-sub) { color: #b5c5ba; }
+html[data-theme="dark"] :is(.local-card,.quick-strip,.table-footer,thead,.chat-toolbar,.chat-message.assistant>div,.suggestions button,.report-option,.search-help,.report-preview) { background: #26372c; border-color: #46554b; }
+html[data-theme="dark"] :is(.nav-item.active,.nav-item:hover,.btn:hover,tbody tr:hover) { background: #304a38; color: #f0f8ee; }
+html[data-theme="dark"] :is(.btn.primary,.btn.dark) { background: #476c53; color: #fff; border-color: #64886b; }
+html[data-theme="dark"] :is(td,th,.panel-title,.filters,.dialog-actions,.chat-toolbar,.preference-section) { border-color: #46554b; }
+html[data-theme="dark"] :is(.notice,.ai-service-note) { background: #393724; color: #f4e3ac; }
+html[data-theme="dark"] .notice.error { background: #4b2824; color: #ffd4cd; }
 .dialog-error { margin: 20px 25px 0; }
 @theme {
   --font-sans: "Segoe UI", Tahoma, Arial, sans-serif;

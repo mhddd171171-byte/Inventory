@@ -7,7 +7,7 @@ type ChatMessage = {id:string;role:'user'|'assistant';text:string;details?:strin
 type Answer = {text:string;brief_text?:string;intent?:string};
 type Transcript = {text:string;language?:string;no_speech?:boolean};
 const delay = (ms:number) => new Promise<void>(resolve => setTimeout(resolve,ms));
-export const aiLabel = (status:AssistantStatus|null) => status?.ready ? 'AI Ready' : status?.running || status?.state === 'starting' || status?.state === 'recovering' ? 'Starting AI…' : 'AI Unavailable';
+export const aiLabel = (status:AssistantStatus|null) => status?.ready ? 'AI Ready' : status?.state==='disabled' ? 'AI Off' : status?.running || status?.state === 'starting' || status?.state === 'recovering' ? 'Starting AI…' : 'AI Unavailable';
 export default function AssistantPanel({status,visible}: {status:AssistantStatus|null;visible:boolean}) {
   const session = useRef(crypto.randomUUID()),epoch = useRef(0),mounted = useRef(true),bottom = useRef<HTMLDivElement>(null);
   const [messages,setMessages] = useState<ChatMessage[]>([]),[question,setQuestion] = useState(''),[busy,setBusy] = useState(false),[error,setError] = useState(''),[voiceActive,setVoiceActive] = useState(false),[phase,setPhase] = useState('Ready to start'),[language,setLanguage] = useState('auto');
@@ -15,6 +15,7 @@ export default function AssistantPanel({status,visible}: {status:AssistantStatus
   const reply = (answer:Answer) => add('assistant',answer.brief_text||answer.text,answer.brief_text&&answer.brief_text!==answer.text?answer.text:undefined);
   async function stopVoice() {epoch.current++;setVoiceActive(false);setPhase('Conversation ended');await call('voice_stop').catch(() => {});}
   useEffect(() => {if(!visible && voiceActive) void stopVoice();},[visible]);
+  useEffect(() => {if(status?.enabled===false&&voiceActive) void stopVoice();},[status?.enabled,voiceActive]);
   useEffect(() => {mounted.current = true;return () => {mounted.current = false;epoch.current++;void call('voice_stop').catch(() => {});};},[]);
   useEffect(() => {if(visible) bottom.current?.scrollIntoView({block:'nearest'});},[messages,busy,visible]);
   useEffect(() => {if(voiceActive&&status?.voice_interrupted) setPhase(current=>current.startsWith('Speaking')?'Listening…':current);},[status?.voice_interrupted,voiceActive]);
@@ -28,7 +29,7 @@ export default function AssistantPanel({status,visible}: {status:AssistantStatus
     const run = ++epoch.current;setVoiceActive(true);setError('');setPhase('Starting voice…');
     const active = () => mounted.current && epoch.current === run;
     async function waitReady() {
-      const deadline = Date.now()+150000;
+      const deadline = Date.now()+(status?.macos_controls?1200000:150000);
       while(active() && Date.now() < deadline) {const voice = await call<VoiceStatus>('voice_status');if(voice.ready) return;if(!voice.configured || !voice.active) throw new Error(voice.message || 'Voice unavailable.');await delay(500);}
       if(active()) throw new Error('Voice took too long to load. Please try again.');
     }
