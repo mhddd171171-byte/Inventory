@@ -1,0 +1,24 @@
+{
+  "rows": [
+    {
+      "question": "What is the total inventory value?",
+      "elapsed_seconds": 119.95,
+      "plan": {
+        "operation": "value",
+        "target": null,
+        "reference": "all",
+        "month": "current"
+      }
+    },
+    {
+      "question": "ما هي قيمة المخزون؟",
+      "elapsed_seconds": 25.57,
+      "plan": {
+        "operation": "value",
+        "target": null,
+        "reference": "all",
+        "month": "current"
+      }
+    }
+  ]
+}

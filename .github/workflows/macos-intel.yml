@@ -86,8 +86,6 @@ jobs:
         id: provision
         run: python3.12 scripts/provision-macos-build.py
       - name: Review unchanged native conversation evidence
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: python3.12 scripts/review-macos-acceptance.py
       - name: Test interface and native Mac settings controls
         run: |

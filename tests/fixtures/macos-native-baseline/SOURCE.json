@@ -1,0 +1,12 @@
+{
+  "source_repository": "mhdalqad-collab/inventory",
+  "source_run": 38598883688,
+  "source_commit": "58ba57311a316401a14f8bd20db931700e142ce6",
+  "source_artifact": 11914325765,
+  "source_artifact_sha256": "cb486d41a482a54cf4052f52416ba043aeb2518cf680b498b8669241747827fd",
+  "files": {
+    "MACOS-AI-ACCEPTANCE.json": "1b55e1386bfae9f9c7319328effb02f57c8564e6135fe94877147428ad2834e8",
+    "MACOS-MODEL-PREFLIGHT.json": "8316d705ed0db95b6d7ec7d2f4625ae19c7c8be7c7e155d64f40485804d256ba",
+    "MACOS-MODEL-PREFLIGHT.log": "c4d15d850ab09dd8db99539faf778322d2d0d83d74bc752a7325486c81edb7ee"
+  }
+}

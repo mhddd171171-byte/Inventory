@@ -2,10 +2,10 @@
 Planner, database and models must match the evaluated build. Runtime controls
 have their own current native process tests; recorded replies are historical.
 """
-import io,json,os,subprocess,tomllib,urllib.error,urllib.request,zipfile
+import hashlib,json,os,subprocess,tomllib
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
-repo="mhdalqad-collab/inventory"
+repo="mhddd171171-byte/Inventory"
 assert os.environ["GITHUB_REPOSITORY"]==repo
 baseline="58ba573"
 changed=subprocess.check_output(["git","diff","--name-only",baseline,"HEAD","--","src","src-tauri/src","src-tauri/migrations","src-tauri/Cargo.toml","src-tauri/Cargo.lock","package.json","voice","scripts/stage-macos-resources.py","scripts/macos-voice-runtime-hook.py","src-tauri/tauri.macos.conf.json","src-tauri/resources/ai/runtime.json","src-tauri/resources/voice/MODELS.json"],cwd=root,text=True).splitlines()
@@ -38,26 +38,24 @@ for name in sorted(metadata & set(changed)):
             own.pop("version")
     assert before==after, f"{name} has changes beyond the application version."
 base_sha=subprocess.check_output(["git","rev-parse",baseline],cwd=root,text=True).strip()
-token=os.environ["GH_TOKEN"]
-prefix=f"https://api.github.com/repos/{repo}"
-headers={"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"}
-def api(path):
-    with urllib.request.urlopen(urllib.request.Request(prefix+path,headers=headers),timeout=60) as response: return json.load(response)
-run=api("/actions/runs/38598883688")
-assert run["head_sha"]==base_sha
-artifact=next(a for a in api("/actions/runs/38598883688/artifacts")["artifacts"] if a["name"]=="Intel-macOS-build-diagnostics")
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self,req,fp,code,msg,newheaders,newurl): return None
-request=urllib.request.Request(prefix+f"/actions/artifacts/{artifact['id']}/zip",headers=headers)
-try: response=urllib.request.build_opener(NoRedirect()).open(request,timeout=60)
-except urllib.error.HTTPError as error:
-    if error.code not in (301,302,303,307,308): raise
-    response=urllib.request.urlopen(error.headers["Location"],timeout=60)
-with response: archive=response.read()
-with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
-    report=json.loads(bundle.read("MACOS-AI-ACCEPTANCE.json"))
-    for name in ("MACOS-MODEL-PREFLIGHT.json","MACOS-MODEL-PREFLIGHT.log"):
-        if name in bundle.namelist(): (root/".build"/name).write_bytes(bundle.read(name))
+# Keep the original native evidence with this build instead of requiring access
+# to a different account's private, expiring Actions artifacts. The source
+# artifact digest was verified against GitHub's authenticated artifact metadata.
+fixture=root/"tests/fixtures/macos-native-baseline"
+source=json.loads((fixture/"SOURCE.json").read_text(encoding="utf-8"))
+assert source["source_repository"]=="mhdalqad-collab/inventory"
+assert source["source_run"]==38598883688 and source["source_commit"]==base_sha
+expected={
+    "MACOS-AI-ACCEPTANCE.json":"1b55e1386bfae9f9c7319328effb02f57c8564e6135fe94877147428ad2834e8",
+    "MACOS-MODEL-PREFLIGHT.json":source["files"]["MACOS-MODEL-PREFLIGHT.json"],
+    "MACOS-MODEL-PREFLIGHT.log":source["files"]["MACOS-MODEL-PREFLIGHT.log"],
+}
+(root/".build").mkdir(exist_ok=True)
+for name,digest in expected.items():
+    content=(fixture/name).read_bytes()
+    assert hashlib.sha256(content).hexdigest()==digest, f"Baseline evidence checksum mismatch: {name}"
+    if name!="MACOS-AI-ACCEPTANCE.json": (root/".build"/name).write_bytes(content)
+report=json.loads((fixture/"MACOS-AI-ACCEPTANCE.json").read_text(encoding="utf-8"))
 assert report["model"]=="Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
 assert report["profile"]=={"context_tokens":4096,"threads":4}
 assert report["total"]==68 and report["passed"]==67

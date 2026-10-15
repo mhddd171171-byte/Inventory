@@ -1,6 +1,7 @@
 # Intel macOS builds in the dedicated inventory repository
 
-Only `mhdalqad-collab/inventory` is used for this project. The workflow
+This Mac build copy publishes only to `mhddd171171-byte/Inventory`. The original
+Windows project and its repository remain unchanged. The workflow
 `.github/workflows/macos-intel.yml` runs on `macos-15-intel`, checks the host
 architecture, builds native Intel llama.cpp and speech binaries, and packages
 the same application and all offline models into a DMG.
@@ -14,8 +15,8 @@ The `Inventory-Manager-Intel-macOS` Actions artifact contains the `.dmg`, checks
 and Mac test evidence. GitHub Release assets must be below 2 GiB; the complete
 offline installer may exceed that, so the workflow uses an Actions artifact.
 Download/extract that artifact and upload the **single `.dmg`** to Google Drive
-for customer distribution. The private repository's artifact download requires
-repository access. The customer should not be given development files.
+for customer distribution. Actions artifact downloads require a GitHub sign-in. Verified releases also
+provide numbered DMG parts, which the project owner reassembles into one DMG. The customer should not be given development files.
 
 ## Signing
 
@@ -45,3 +46,13 @@ and RAM and test the final installation on that machine.
 Sources: [GitHub runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
 [release asset limits](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
 [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/).
+
+## Baseline evidence portability
+
+`tests/fixtures/macos-native-baseline` preserves the original 68 native model
+responses and source provenance. Its archive SHA-256 was checked against the
+original GitHub Actions artifact metadata before copying. The review script
+checks the evidence checksum and guards the planner, database and models against
+the evaluated Git commit. This historical evidence does not replace the new
+native AI control, installed launch, persistent off, timeout and DMG tests.
+No access to the original account is needed during the new repository's build.

@@ -5,3 +5,6 @@
 *.ps1 text eol=crlf
 # This derived model table is checksum-pinned, including its exact byte encoding.
 voice/catt-tokenizer.json -text
+
+# Preserve exact native evidence bytes across Windows and macOS checkouts.
+tests/fixtures/macos-native-baseline/* -text

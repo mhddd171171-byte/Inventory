@@ -1,0 +1,28 @@
+warning: no usable GPU found, --gpu-layers option will be ignored
+warning: one possible reason is that llama.cpp was compiled without GPU support
+warning: consult docs/build.md for compilation instructions
+0.00.023.034 I srv  llama_server: initializing ...
+0.00.023.066 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.023.350 I srv  init_listene: The UI is disabled
+0.00.023.368 I srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+0.00.025.987 I srv    load_model: loading model '/Users/runner/work/inventory/inventory/src-tauri/resources/ai/Qwen3-4B-Instruct-2507-Q4_K_M.gguf'
+0.01.521.797 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.11.026.934 I cmn          init: llama threadpool init, n_threads = 4
+0.11.616.983 I srv    load_model: initializing, n_slots = 1, n_ctx_slot = 4096, kv_unified = 'false'
+0.11.647.403 I srv  llama_server: model loaded
+0.11.647.623 I srv  llama_server: listening on http://127.0.0.1:49190
+0.11.695.005 I slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = -1
+0.11.695.418 I slot launch_slot_: id  0 | task 0 | processing task, is_child = 0
+2.11.688.887 I slot print_timing: id  0 | task 0 | prompt eval time =   97613.57 ms /   967 tokens (  100.94 ms per token,     9.91 tokens per second)
+2.11.688.903 I slot print_timing: id  0 | task 0 |        eval time =   22379.72 ms /    18 tokens ( 1316.45 ms per token,     0.76 tokens per second)
+2.11.688.905 I slot print_timing: id  0 | task 0 |       total time =  119993.30 ms /   985 tokens
+2.11.688.906 I slot print_timing: id  0 | task 0 |    graphs reused =         17
+2.11.690.282 I slot      release: id  0 | task 0 | stop processing: n_tokens = 984, truncated = 0
+2.11.710.463 I slot get_availabl: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.987 (> 0.100 thold), f_keep = 0.971
+2.11.710.716 I slot launch_slot_: id  0 | task 19 | processing task, is_child = 0
+2.37.279.071 I slot print_timing: id  0 | task 19 | prompt eval time =    7677.86 ms /    13 tokens (  590.60 ms per token,     1.69 tokens per second)
+2.37.279.092 I slot print_timing: id  0 | task 19 |        eval time =   17890.44 ms /    18 tokens ( 1052.38 ms per token,     0.95 tokens per second)
+2.37.279.093 I slot print_timing: id  0 | task 19 |       total time =   25568.30 ms /    31 tokens
+2.37.279.094 I slot print_timing: id  0 | task 19 |    graphs reused =         33
+2.37.279.791 I slot      release: id  0 | task 19 | stop processing: n_tokens = 985, truncated = 0
+2.37.284.315 I srv    operator(): operator(): cleaning up before exit...

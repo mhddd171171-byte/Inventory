@@ -7,7 +7,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-repository = "mhdalqad-collab/inventory"
+repository = "mhddd171171-byte/Inventory"
 if os.environ.get("GITHUB_REPOSITORY") != repository:
     raise SystemExit("Release publishing is restricted to the authorized repository.")
 root = Path(__file__).resolve().parents[1]
