@@ -7,6 +7,7 @@ const macosControls=new URLSearchParams(location.search).has('mac');
 const preferences=JSON.parse(sessionStorage.getItem('mac-preferences')||'{"ai_enabled":true,"theme":"system","ai_pause_reason":""}');
 Object.assign(state,{preferences,macosControls});
 Object.assign(window,{isTauri:true,__uiTest:state});
+const backupState={latest_backup:null as string|null,additional_directory:null as string|null};
 const now=()=>new Date().toISOString();
 const sum=(rows:any[],key:string)=>rows.reduce((n,r)=>n+(r[key]??0),0);
 function snapshot(month=currentMonth()):Snapshot {
@@ -22,6 +23,8 @@ mockIPC(async(command,args)=>{
   if(action==='snapshot')return snapshot(payload.month);
   if(action==='status')return {ready:true,schema_version:2};
   if(action==='assistant_status')return {configured:true,enabled:preferences.ai_enabled,macos_controls:macosControls,retry_available:!preferences.ai_enabled&&['failed','timed_out'].includes(preferences.ai_pause_reason),startup_timeout_seconds:1200,running:preferences.ai_enabled,ready:state.ready&&preferences.ai_enabled,state:preferences.ai_enabled?(state.ready?'ready':'starting'):(preferences.ai_pause_reason==='manual'?'disabled':preferences.ai_pause_reason),message:preferences.ai_enabled?'Starting local AI':'AI is off. Inventory remains available.',voice_configured:true,voice_ready:state.voiceActive,voice:{configured:true,ready:state.voiceActive,active:state.voiceActive,message:'Voice ready'}};
+  if(action==='data_safety_status'||action==='backup_now'||action==='backup_choose_folder'){if(action==='backup_now')backupState.latest_backup='/Users/customer/Inventory Manager Backups/latest.db';if(action==='backup_choose_folder')backupState.additional_directory='/Volumes/USB';return {enabled:true,version:'2.0.6',directory:'/Users/customer/Inventory Manager Backups',...backupState,backup_count:0,warning:(state as any).backupWarning||'',recovery_pending:(state as any).recoveryPending||false,database_was_missing:false};}
+  if(action==='backup_open_folder')return {opened:true};
   if(action==='settings_get')return structuredClone(preferences);
   if(action==='settings_theme'){preferences.theme=payload.theme;sessionStorage.setItem('mac-preferences',JSON.stringify(preferences));return {theme:preferences.theme};}
   if(action==='assistant_set_enabled'){preferences.ai_enabled=payload.enabled;preferences.ai_pause_reason=payload.enabled?'':'manual';state.ready=false;state.voiceActive=false;sessionStorage.setItem('mac-preferences',JSON.stringify(preferences));return {configured:true,enabled:preferences.ai_enabled,macos_controls:macosControls,retry_available:false,running:preferences.ai_enabled,ready:false,state:payload.enabled?'starting':'disabled',message:payload.enabled?'Starting AI':'AI is off',voice_configured:true,voice_ready:false};}

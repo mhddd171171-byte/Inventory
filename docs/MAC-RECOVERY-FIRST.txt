@@ -1,0 +1,35 @@
+CUSTOMER MAC - PRESERVE AND CHECK EXISTING DATA FIRST
+
+The missing app does not prove the database is lost. The customer's Mac has not
+been inspected, so neither security removal nor permanent data loss is confirmed.
+
+1. Do not empty Trash, run an app-cleaner, delete Application Support, or restore
+   an older/empty database over current files. Use the same Mac login as before.
+2. In Finder choose Go > Go to Folder and paste:
+   ~/Library/Application Support/com.repaircenter.inventorymanager/data/
+   If present, preserve a copy of the WHOLE folder on USB before trying recovery.
+   Keep inventory.db together with any inventory.db-wal and inventory.db-shm
+   files. Do not select/delete only the working files.
+3. Look for Inventory Manager in /Applications and ~/Applications. Check whether
+   it was only opened from a mounted installer, or whether it is in Trash. Keep
+   any exact security warning for diagnosis. Do not bypass a 'will damage your
+   computer' or known-malware warning; preserve the message for investigation.
+4. If inventory.db exists, installing the trusted new app into Applications
+   should reopen that same data. Reinstalling does not require restoring an older
+   backup. If the app shows empty inventory, stop entering new records and first
+   inspect the preserved folder and saved backups.
+5. Look for manual .db backups, before-restore-*.db and before-single-user-*.db
+   in the data folder, and any earlier backups saved to USB or other folders.
+   If Time Machine was configured, look for an older copy of the data folder.
+   Restore only a verified appropriate backup after preserving current files.
+6. The new app stores FUTURE automatic backups in:
+   ~/Inventory Manager Backups/
+   Settings > Automatic backups > Open backup folder shows them. To recover,
+   choose Backup & restore > Choose backup to restore. Restore replaces records.
+   An additional folder/USB copy can be enabled in Settings.
+
+The 2.0.6 update cannot recover previously deleted records without an available
+backup or recoverable original database. Do not assume an empty new database is
+proof that the old files are gone. No recovery has been performed on this Mac yet.
+
+Apple security guidance: https://support.apple.com/en-us/102445

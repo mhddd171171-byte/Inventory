@@ -6,13 +6,14 @@ use std::path::Path;
 #[serde(default)]
 pub struct Preferences {
     pub ai_enabled: bool,
+    pub additional_backup_directory: Option<String>,
     pub ai_pause_reason: String,
     pub theme: String,
     pub performance_profile: String,
 }
 impl Default for Preferences {
     fn default() -> Self {
-        Self { ai_enabled: true, ai_pause_reason: String::new(), theme: "system".into(), performance_profile: "balanced".into() }
+        Self { additional_backup_directory: None, ai_enabled: true, ai_pause_reason: String::new(), theme: "system".into(), performance_profile: "balanced".into() }
     }
 }
 impl Preferences {

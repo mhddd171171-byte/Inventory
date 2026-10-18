@@ -1,4 +1,8 @@
 mod store;
+#[cfg(any(target_os="macos",test))]
+mod data_safety;
+#[cfg(any(target_os="macos",test))]
+mod mac_installation;
 mod assistant;
 #[cfg(any(target_os="macos",test))]
 mod desktop_settings;
@@ -13,6 +17,8 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 struct AppState {
+    #[cfg(target_os="macos")]
+    data_safety: Mutex<data_safety::DataSafety>,
     #[cfg(target_os="macos")]
     preferences: Mutex<desktop_settings::Preferences>,
     #[cfg(target_os="macos")]
@@ -105,7 +111,16 @@ fn start_assistant_manager(app: tauri::AppHandle) {
 
 #[tauri::command]
 async fn api(app: tauri::AppHandle, action: String, payload: Value) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || dispatch(&app, &action, payload)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let result=dispatch(&app,&action,payload);
+        #[cfg(target_os="macos")]
+        if action=="restore" && result.as_ref().is_ok_and(|v|v["restored"]==true) {
+            let state=app.state::<AppState>();
+            let store=state.store.lock().map_err(lock_error)?;
+            state.data_safety.lock().map_err(lock_error)?.restored(&store);
+        }
+        result
+    }).await.map_err(|e| e.to_string())?
 }
 
 fn validate_export(payload: &Value, excel: bool) -> Result<(Vec<u8>, String), String> {
@@ -161,6 +176,42 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             }
             assistant.request_start();
             let status = assistant.status();cache_status(&state,status.clone());Ok(status)
+        },
+        #[cfg(target_os="macos")]
+        "data_safety_status" => Ok(state.data_safety.lock().map_err(lock_error)?.status()),
+        #[cfg(target_os="macos")]
+        "backup_open_folder" => {
+            let directory=state.data_safety.lock().map_err(lock_error)?.directory.clone();
+            fs::create_dir_all(&directory).map_err(|e|e.to_string())?;
+            std::process::Command::new("/usr/bin/open").arg(&directory).status().map_err(|e|e.to_string())?;
+            Ok(json!({"opened":true}))
+        },
+        #[cfg(target_os="macos")]
+        "backup_now" => {
+            let store=state.store.lock().map_err(lock_error)?;
+            let mut safety=state.data_safety.lock().map_err(lock_error)?;
+            if safety.recovery_pending {return Err("Restore your earlier backup before creating a new backup of this empty database.".into());}
+            safety.capture(&store); Ok(safety.status())
+        },
+        #[cfg(target_os="macos")]
+        "backup_choose_folder" => {
+            if let Some(folder)=app.dialog().file().blocking_pick_folder() {
+                let directory=folder.into_path().map_err(|e|e.to_string())?;
+                let store=state.store.lock().map_err(lock_error)?;
+                let mut safety=state.data_safety.lock().map_err(lock_error)?;
+                safety.set_extra(directory,&state.data_dir)?;
+                let selected=safety.status()["additional_directory"].as_str().map(str::to_owned);
+                let mut preferences=state.preferences.lock().map_err(lock_error)?;
+                preferences.additional_backup_directory=selected;preferences.save(&state.data_dir)?;
+                if !safety.recovery_pending {safety.capture(&store);}
+                return Ok(safety.status());
+            }
+            Ok(state.data_safety.lock().map_err(lock_error)?.status())
+        },
+        #[cfg(target_os="macos")]
+        "save_product" | "stock_entry" | "stock_out" => {
+            let mut store=state.store.lock().map_err(lock_error)?;
+            state.data_safety.lock().map_err(lock_error)?.execute(&mut store,action,payload)
         },
         "assistant_status" => cached_status(&state),
         "voice_status" => Ok(cached_status(&state)?["voice"].clone()),
@@ -247,6 +298,8 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
 }
 
 pub fn run() {
+    #[cfg(target_os="macos")]
+    if !mac_installation::require_installation() {return;}
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| { if let Some(window) = app.get_webview_window("main") { let _ = window.show(); let _ = window.set_focus(); } }))
         .plugin(tauri_plugin_dialog::init())
@@ -274,12 +327,23 @@ pub fn run() {
             let status = assistant.status();
             let runtime_shutdown = assistant.shutdown_handle();
             let voice_shutdown = assistant.voice_shutdown_handle();
+            #[cfg(target_os="macos")]
+            let database_existed=data_safety::validate_live_path(&data_dir.join("inventory.db")).map_err(std::io::Error::other)?;
+            #[cfg(target_os="macos")]
+            let mut safety={
+                let mut safety=data_safety::DataSafety::new(app.path().home_dir()?.join("Inventory Manager Backups"),preferences.additional_backup_directory.as_ref().map(PathBuf::from),database_existed);
+                safety.protect_recovery(&data_dir).map_err(std::io::Error::other)?;safety
+            };
             let store = Store::open(&data_dir.join("inventory.db")).map_err(std::io::Error::other)?;
+            #[cfg(target_os="macos")]
+            let data_safety={safety.startup(&store);Mutex::new(safety)};
             #[cfg(not(target_os="macos"))]
             if let Err(error) = write_config(&data_dir, &config) { eprintln!("{error}"); }
             #[cfg(target_os="macos")]
             if let Err(error) = preferences.save(&data_dir) { eprintln!("{error}"); }
             app.manage(AppState {
+                #[cfg(target_os="macos")]
+                data_safety,
                 #[cfg(target_os="macos")]
                 preferences: Mutex::new(preferences),
                 #[cfg(target_os="macos")]

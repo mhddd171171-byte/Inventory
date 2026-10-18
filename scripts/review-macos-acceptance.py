@@ -9,8 +9,8 @@ repo="mhddd171171-byte/Inventory"
 assert os.environ["GITHUB_REPOSITORY"]==repo
 baseline="58ba573"
 changed=subprocess.check_output(["git","diff","--name-only",baseline,"HEAD","--","src","src-tauri/src","src-tauri/migrations","src-tauri/Cargo.toml","src-tauri/Cargo.lock","package.json","voice","scripts/stage-macos-resources.py","scripts/macos-voice-runtime-hook.py","src-tauri/tauri.macos.conf.json","src-tauri/resources/ai/runtime.json","src-tauri/resources/voice/MODELS.json"],cwd=root,text=True).splitlines()
-ui_only={"src/App.tsx","src/types.ts","src/styles.css","src/AssistantPanel.tsx","src/SettingsPanel.tsx","src-tauri/src/assistant_acceptance.rs"}
-runtime_controls={"src-tauri/src/assistant.rs","src-tauri/src/assistant_voice.rs","src-tauri/src/lib.rs","src-tauri/src/desktop_settings.rs"}
+ui_only={"src/App.tsx","src/types.ts","src/styles.css","src/AssistantPanel.tsx","src/SettingsPanel.tsx","src/BackupSafety.tsx","src/api.ts","src-tauri/src/assistant_acceptance.rs"}
+runtime_controls={"src-tauri/src/assistant.rs","src-tauri/src/assistant_voice.rs","src-tauri/src/lib.rs","src-tauri/src/desktop_settings.rs","src-tauri/src/data_safety.rs","src-tauri/src/mac_installation.rs"}
 metadata={"package.json","src-tauri/Cargo.toml","src-tauri/Cargo.lock"}
 assert set(changed)<=ui_only|metadata|runtime_controls, "Planner/database/model changes require a new inference run."
 def previous(name):

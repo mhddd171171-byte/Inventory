@@ -96,7 +96,7 @@ jobs:
           # Tauri resolves these roots even for unit tests. Real resources are
           # staged and checked by the native packaging step that follows.
           mkdir -p .build/macos-resources/{ai,voice,licenses}
-          cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
+          INVENTORY_MAC_UPDATE_FIXTURE="$PWD/.build/MACOS-UPDATE-FIXTURE.db" cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
       - name: Build native application and DMG
         env:
           GH_TOKEN: ${{ github.token }}

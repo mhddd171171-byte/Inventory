@@ -4,6 +4,7 @@ import os
 import plistlib
 import re
 import sqlite3
+import shutil
 import subprocess
 import sys
 import time
@@ -11,10 +12,23 @@ import urllib.request
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-app = Path(sys.argv[1]).resolve()
+source_app = Path(sys.argv[1]).resolve()
+app=Path.home()/"Applications"/source_app.name
+assert not app.exists(), "CI installation target unexpectedly exists; preserve it."
+app.parent.mkdir(exist_ok=True)
+subprocess.run(["ditto","--rsrc","--extattr",str(source_app),str(app)],check=True)
 info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
 executable = app / "Contents/MacOS" / info["CFBundleExecutable"]
-report = {"application_launched_from_dmg": False, "automatic_ai_ready": False,
+data_dir=Path.home()/"Library/Application Support"/info["CFBundleIdentifier"]/"data"
+data_dir.mkdir(parents=True,exist_ok=True)
+fixture=root/".build/MACOS-UPDATE-FIXTURE.db"
+assert fixture.is_file() and not (data_dir/"inventory.db").exists()
+shutil.copy2(fixture,data_dir/"inventory.db")
+def business_records(path):
+    with sqlite3.connect(f"file:{path}?mode=ro",uri=True) as db:
+        return {table:db.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall() for table in ("products","stock_entries","sales","sale_lines","fifo_allocations")}
+expected=business_records(fixture)
+report = {"application_launched_from_dmg": False,"application_launched_from_applications":False, "automatic_ai_ready": False,
           "clean_application_exit": False, "owned_ai_exited": False}
 owned = set()
 stdout = (root / ".build/mac-app-stdout.log").open("w")
@@ -22,7 +36,7 @@ stderr = (root / ".build/mac-app-stderr.log").open("w")
 process = subprocess.Popen([str(executable)], stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr)
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 try:
-    report["application_launched_from_dmg"] = True
+    report["application_launched_from_applications"] = True
     start = time.monotonic()
     while time.monotonic() - start < 120:
         assert process.poll() is None, "The installed app exited during startup."
@@ -67,6 +81,12 @@ try:
             break
         time.sleep(0.2)
     assert report["clean_application_exit"] and report["owned_ai_exited"], "Owned AI remained after quitting the app."
+    assert business_records(data_dir/"inventory.db")==expected
+    auto_folder=Path.home()/"Inventory Manager Backups"
+    copies=list(auto_folder.glob("inventory-auto-*.db"))
+    assert copies and any(business_records(p)==expected for p in copies)
+    report["existing_inventory_preserved_on_update"]=True
+    report["automatic_backup_outside_application_matches_inventory"]=True
     # Exercise the installed preference path, not a developer configuration.
     data_dir=Path.home()/"Library/Application Support"/info["CFBundleIdentifier"]/"data"
     settings_path=data_dir/"settings.json"
@@ -92,6 +112,20 @@ try:
         subprocess.run(["osascript","-e",f"tell application {json.dumps(str(app))} to quit"],check=True,timeout=20,capture_output=True)
         assert process.wait(timeout=30)==0
         assert json.loads(settings_path.read_text())["ai_enabled"] is False
+    assert business_records(data_dir/"inventory.db")==expected
+    # Simulate a missing DB only in this disposable runner. Never overwrite the
+    # prior fixture or its backup. Recovery history must survive repeated launch.
+    (data_dir/"inventory.db").rename(root/".build/CI-PRESERVED-inventory.db")
+    before={p.name for p in auto_folder.glob("inventory-auto-*.db")}
+    for _ in range(2):
+        process=subprocess.Popen([str(executable)],stdin=subprocess.DEVNULL,stdout=stdout,stderr=stderr)
+        time.sleep(4)
+        assert process.poll() is None
+        assert (data_dir/"recovery-required.flag").is_file()
+        assert {p.name for p in auto_folder.glob("inventory-auto-*.db")}==before
+        subprocess.run(["osascript","-e",f"tell application {json.dumps(str(app))} to quit"],check=True,timeout=20,capture_output=True)
+        assert process.wait(timeout=30)==0
+    report["missing_database_history_preserved_across_relaunch"]=True
     report["saved_off_state_prevents_ai_and_voice_on_relaunch"]=True
     report["timeout_pause_persists_without_automatic_retry"]=True
     report["local_database_opens_with_ai_off"]=True

@@ -1,6 +1,6 @@
 [package]
 name = "inventory-manager"
-version = "2.0.5"
+version = "2.0.6"
 description = "Offline repair-center inventory, CR sales and local voice assistant"
 edition = "2021"
 license = "MIT"
