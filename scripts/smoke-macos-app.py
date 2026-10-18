@@ -116,6 +116,9 @@ try:
     # Simulate a missing DB only in this disposable runner. Never overwrite the
     # prior fixture or its backup. Recovery history must survive repeated launch.
     (data_dir/"inventory.db").rename(root/".build/CI-PRESERVED-inventory.db")
+    for suffix in ("-wal","-shm"):
+        sidecar=data_dir/("inventory.db"+suffix)
+        if sidecar.exists():sidecar.rename(root/(".build/CI-PRESERVED-inventory.db"+suffix))
     before={p.name for p in auto_folder.glob("inventory-auto-*.db")}
     for _ in range(2):
         process=subprocess.Popen([str(executable)],stdin=subprocess.DEVNULL,stdout=stdout,stderr=stderr)
