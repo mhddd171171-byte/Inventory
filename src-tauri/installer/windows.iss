@@ -11,7 +11,7 @@
 [Setup]
 AppId=com.repaircenter.inventorymanager
 AppName=Inventory Manager
-AppVersion=2.0.6
+AppVersion=2.0.7
 AppPublisher=Al Mohtarif Repair Center
 DefaultDirName={localappdata}\Programs\Inventory Manager
 DefaultGroupName=Inventory Manager
@@ -21,7 +21,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#RepoRoot}\deliverables
-OutputBaseFilename=Inventory Manager_2.0.6_x64-setup
+OutputBaseFilename=Inventory Manager_2.0.7_x64-setup
 SetupIconFile={#RepoRoot}\src-tauri\icons\icon.ico
 UninstallDisplayIcon={app}\inventory-manager.exe
 Compression=zip
