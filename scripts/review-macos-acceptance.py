@@ -10,11 +10,20 @@ assert os.environ["GITHUB_REPOSITORY"]==repo
 baseline="58ba573"
 changed=subprocess.check_output(["git","diff","--name-only",baseline,"HEAD","--","src","src-tauri/src","src-tauri/migrations","src-tauri/Cargo.toml","src-tauri/Cargo.lock","package.json","voice","scripts/stage-macos-resources.py","scripts/macos-voice-runtime-hook.py","src-tauri/tauri.macos.conf.json","src-tauri/resources/ai/runtime.json","src-tauri/resources/voice/MODELS.json"],cwd=root,text=True).splitlines()
 ui_only={"src/App.tsx","src/types.ts","src/styles.css","src/AssistantPanel.tsx","src/SettingsPanel.tsx","src/BackupSafety.tsx","src/api.ts","src-tauri/src/assistant_acceptance.rs"}
-runtime_controls={"src-tauri/src/assistant.rs","src-tauri/src/assistant_voice.rs","src-tauri/src/lib.rs","src-tauri/src/desktop_settings.rs","src-tauri/src/data_safety.rs","src-tauri/src/mac_installation.rs"}
+runtime_controls={"src-tauri/src/store.rs","src-tauri/src/assistant.rs","src-tauri/src/assistant_voice.rs","src-tauri/src/lib.rs","src-tauri/src/desktop_settings.rs","src-tauri/src/data_safety.rs","src-tauri/src/mac_installation.rs"}
 metadata={"package.json","src-tauri/Cargo.toml","src-tauri/Cargo.lock"}
 assert set(changed)<=ui_only|metadata|runtime_controls, "Planner/database/model changes require a new inference run."
 def previous(name):
     return subprocess.check_output(["git","show",f"{baseline}:{name}"],cwd=root).decode("utf-8")
+# The only production database change normalizes schema CRLF, without changing
+# queries, schema, validation constraints, mutations or snapshots. New native
+# tests exercise LF/CRLF open, restore, v1 migration and real tamper rejection.
+old_store=previous("src-tauri/src/store.rs").split("#[cfg(test)]",1)[0]
+new_store=(root/"src-tauri/src/store.rs").read_text(encoding="utf-8").split("#[cfg(test)]",1)[0]
+old_fragment='let objects=s.query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))'
+new_fragment='let objects=s.query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get::<_,String>(2)?.replace("\\r\\n","\\n"))))'
+expected_store=old_store.replace(old_fragment,new_fragment).replace('fn schema_objects(conn:&Connection)','// SQLite preserves source line endings. Normalize only CRLF; retain every\n// other byte, object, constraint and trigger check.\nfn schema_objects(conn:&Connection)')
+assert expected_store==new_store, "Database changes beyond schema newline normalization require fresh acceptance."
 old=previous("src-tauri/src/assistant.rs");new=(root/"src-tauri/src/assistant.rs").read_text(encoding="utf-8")
 # Protect the exact prompt/request, response parsing and conversational planner.
 assert old.split("    fn infer(",1)[1].split("        let response = match response",1)[0] == new.split("    fn infer(",1)[1].split("        let response = match response",1)[0]
@@ -74,7 +83,7 @@ row["passed"]=True
 row["evaluation_review"]="Correct SQLite-grounded purchase value was returned as part of a combined quantity/value reply; primary intent equality was too strict."
 report["original_native_assertion_passes"]=67
 report["passed"]=sum(r["passed"] for r in report["rows"])
-report["recorded_response_review"]={"source_run":38598883688,"source_commit":base_sha,"planner_database_and_models_unchanged":True,"runtime_controls_changed":True,"current_runtime_evaluation":"MACOS-AI-CONTROLS.json","workspace_ui_changes":sorted(set(changed)&(ui_only-{"src-tauri/src/assistant_acceptance.rs"})),"corrected_assertion":"Validate grounded purchase value, including a combined quantity/value reply."}
+report["recorded_response_review"]={"source_run":38598883688,"source_commit":base_sha,"planner_business_queries_and_models_unchanged":True,"schema_line_ending_validation_fixed":True,"runtime_controls_changed":True,"current_runtime_evaluation":"MACOS-AI-CONTROLS.json","workspace_ui_changes":sorted(set(changed)&(ui_only-{"src-tauri/src/assistant_acceptance.rs"})),"corrected_assertion":"Validate grounded purchase value, including a combined quantity/value reply."}
 assert report["passed"]==report["total"]==68
 (root/".build/MACOS-AI-ACCEPTANCE.json").write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding="utf-8")
-print("68 historical native replies passed review; planner/database/models unchanged. Current runtime controls require separate native process verification.")
+print("68 historical native replies passed review; planner/business queries/models unchanged; schema line-ending portability verified separately. Current runtime controls require separate native process verification.")

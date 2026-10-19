@@ -126,7 +126,9 @@ fn reject_same_path(current:&Path,selected:&Path)->Result<(),String>{
  let live=live.to_string_lossy().to_lowercase();let target=target.to_string_lossy().to_lowercase();
  if target==live||["-wal","-shm","-journal"].iter().any(|suffix|target==format!("{live}{suffix}")){return Err("Choose a separate backup file, not the live database or one of its working files.".into());}Ok(())
 }
-fn schema_objects(conn:&Connection)->Result<Vec<(String,String,String)>,String>{let mut s=conn.prepare("SELECT type,name,COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").map_err(db_error)?;let objects=s.query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(db_error)?.collect::<rusqlite::Result<Vec<_>>>().map_err(db_error)?;Ok(objects)}
+// SQLite preserves source line endings. Normalize only CRLF; retain every
+// other byte, object, constraint and trigger check.
+fn schema_objects(conn:&Connection)->Result<Vec<(String,String,String)>,String>{let mut s=conn.prepare("SELECT type,name,COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").map_err(db_error)?;let objects=s.query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get::<_,String>(2)?.replace("\r\n","\n")))).map_err(db_error)?.collect::<rusqlite::Result<Vec<_>>>().map_err(db_error)?;Ok(objects)}
 fn validate_structure(conn:&Connection,schema:&str,expected:i64)->Result<(),String>{
  let app:i64=conn.pragma_query_value(None,"application_id",|r|r.get(0)).map_err(db_error)?;
  if version(conn)?!=expected||app!=APPLICATION_ID{return Err("This is not a compatible Inventory Manager database.".into());}
@@ -273,5 +275,24 @@ mod tests{
  }
  #[test]fn restoring_v1_migrates_private_copy_and_leaves_selected_backup_unchanged(){
   let mut f=Fixture::new();f.entry("1",2,50);let old=f.directory.path().join("legacy.db");legacy_fixture(&old);let source_bytes=fs::read(&old).unwrap();f.store.restore(&old).unwrap();assert_eq!(fs::read(&old).unwrap(),source_bytes);assert_eq!(f.snapshot()["summary"]["total_units"],6);assert_eq!(version(&f.store.conn).unwrap(),2);
+ }
+
+ #[test]fn schema_line_endings_are_portable_without_weakening_validation(){
+  let directory=tempfile::tempdir().unwrap();
+  for (index,schema) in [SCHEMA,LEGACY_SCHEMA].iter().enumerate(){
+   for (suffix,sql) in [("lf",schema.replace("\r\n","\n")),("crlf",schema.replace("\r\n","\n").replace("\n","\r\n"))]{
+    let path=directory.path().join(format!("schema-{index}-{suffix}.db"));
+    let conn=Connection::open(&path).unwrap();conn.execute_batch(&sql).unwrap();drop(conn);
+    let mut store=Store::open(&path).expect("LF/CRLF databases must open, including v1 migration");
+    store.execute("stock_entry",json!({"item_code":"123","name":"Portable screen","model_description":"Opening test","quantity":7,"unit_cost_baisa":1500})).unwrap();
+    let backup=directory.path().join(format!("backup-{index}-{suffix}.db"));store.backup(&backup).unwrap();
+    let restored_path=directory.path().join(format!("restore-{index}-{suffix}.db"));let mut restored=Store::open(&restored_path).unwrap();
+    restored.restore(&backup).expect("Restore must accept line-ending differences");
+    assert_eq!(restored.snapshot(&json!({})).unwrap()["summary"]["total_units"],7);
+    drop(restored);let conn=Connection::open(&restored_path).unwrap();
+    conn.execute_batch("DROP TRIGGER entry_no_delete;").unwrap();drop(conn);
+    assert!(Store::open(&restored_path).is_err(),"Real schema changes must still be rejected");
+   }
+  }
  }
 }

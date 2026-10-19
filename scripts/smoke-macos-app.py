@@ -23,7 +23,16 @@ data_dir=Path.home()/"Library/Application Support"/info["CFBundleIdentifier"]/"d
 data_dir.mkdir(parents=True,exist_ok=True)
 fixture=root/".build/MACOS-UPDATE-FIXTURE.db"
 assert fixture.is_file() and not (data_dir/"inventory.db").exists()
-shutil.copy2(fixture,data_dir/"inventory.db")
+# Seed the installed app with Windows-style schema SQL, preserving all fixture
+# business rows. The original 2.0.6 exact-text validator rejects this valid file.
+with sqlite3.connect(f"file:{fixture}?mode=ro",uri=True) as incoming, sqlite3.connect(data_dir/"inventory.db") as destination:
+    schema=(root/"src-tauri/migrations/002_single_user.sql").read_text().replace("\r\n","\n").replace("\n","\r\n")
+    destination.executescript(schema)
+    for table in ("products","stock_entries","sales","sale_lines","fifo_allocations","legacy_archive","migration_info"):
+        rows=incoming.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
+        if rows: destination.executemany(f"INSERT INTO {table} VALUES ("+",".join("?" for _ in rows[0])+")",rows)
+    assert destination.execute("PRAGMA integrity_check").fetchone()[0]=="ok"
+
 def business_records(path):
     with sqlite3.connect(f"file:{path}?mode=ro",uri=True) as db:
         return {table:db.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall() for table in ("products","stock_entries","sales","sale_lines","fifo_allocations")}
@@ -86,6 +95,7 @@ try:
     copies=list(auto_folder.glob("inventory-auto-*.db"))
     assert copies and any(business_records(p)==expected for p in copies)
     report["existing_inventory_preserved_on_update"]=True
+    report["windows_crlf_database_opened_on_installed_mac"]=True
     report["automatic_backup_outside_application_matches_inventory"]=True
     # Exercise the installed preference path, not a developer configuration.
     data_dir=Path.home()/"Library/Application Support"/info["CFBundleIdentifier"]/"data"
