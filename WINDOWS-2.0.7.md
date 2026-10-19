@@ -20,8 +20,11 @@ Output: deliverables/Inventory Manager_2.0.7_x64-setup.exe.
 
 Validation: 52 backend tests, 21 frontend tests, 20 browser IPC integration checks
 passed. Interface tests use a fixture; database tests use real temporary SQLite.
-A complete installed Windows hardware/voice walkthrough has not been performed
-for this build. The existing model has not been changed or re-benchmarked.
+The Windows installer was applied over 2.0.6 and the actual installed desktop
+passed startup, database access, saved AI/theme restart, resource-presence and
+normal-exit checks with all business records preserved. The same release binary
+also passed automatic model startup and a grounded live database answer.
+Physical microphone/speaker testing has not been repeated for this fix. The existing model has not been changed or re-benchmarked.
 
 Update: back up the installed database, close Inventory Manager, and run the
 2.0.7 installer against the same installation directory. Do not uninstall first.
