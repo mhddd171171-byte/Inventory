@@ -101,7 +101,7 @@ impl VoiceWorker {
         self.ready = false;
         self.started = None;
         self.failures = self.failures.saturating_add(1);
-        if cfg!(target_os="macos") {
+        if cfg!(any(target_os="macos",windows)) {
             self.desired.store(false, Ordering::SeqCst);
             self.message = format!("Voice stopped: {message}. Choose Retry AI to try again.");
             return;
@@ -129,7 +129,7 @@ impl VoiceWorker {
                 }
             }
         }
-        if self.started.is_some_and(|t| !self.ready && t.elapsed() > Duration::from_secs(if cfg!(target_os="macos") {1200} else {120})) {
+        if self.started.is_some_and(|t| !self.ready && t.elapsed() > Duration::from_secs(if cfg!(any(target_os="macos",windows)) {1200} else {120})) {
             self.failed("the speech model did not finish loading".into());
         }
         if self.desired.load(Ordering::SeqCst) && self.receiver.is_none() && Instant::now() >= self.retry_at {

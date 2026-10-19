@@ -1,10 +1,8 @@
 mod store;
-#[cfg(any(target_os="macos",test))]
 mod data_safety;
 #[cfg(any(target_os="macos",test))]
 mod mac_installation;
 mod assistant;
-#[cfg(any(target_os="macos",test))]
 mod desktop_settings;
 #[cfg(test)]
 mod assistant_acceptance;
@@ -17,11 +15,8 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 struct AppState {
-    #[cfg(target_os="macos")]
     data_safety: Mutex<data_safety::DataSafety>,
-    #[cfg(target_os="macos")]
     preferences: Mutex<desktop_settings::Preferences>,
-    #[cfg(target_os="macos")]
     data_dir: PathBuf,
     store: Mutex<Store>,
     assistant: Mutex<Assistant>,
@@ -76,7 +71,6 @@ fn write_config(data_dir: &Path, config: &Value) -> Result<(), String> {
 fn cached_status(state: &AppState) -> Result<Value, String> { let mut status=state.assistant_status.lock().map_err(lock_error)?.clone();status["voice_interrupted"]=json!(state.voice_shutdown.interrupted());Ok(status) }
 fn cache_status(state: &AppState, status: Value) { if let Ok(mut cached) = state.assistant_status.lock() { *cached = status; } }
 
-#[cfg(target_os="macos")]
 fn remember_ai_pause(state: &AppState, status: &Value) {
     if status["enabled"] == false && matches!(status["state"].as_str(),Some("failed"|"timed_out")) {
         if let Ok(mut preferences) = state.preferences.lock() {
@@ -97,7 +91,6 @@ fn start_assistant_manager(app: tauri::AppHandle) {
             // have separate locks so inventory stays usable throughout loading.
             if let Ok(mut assistant) = state.assistant.try_lock() {
                 let status = assistant.tick();
-                #[cfg(target_os="macos")]
                 remember_ai_pause(&state, &status);
                 cache_status(&state, status);
             }
@@ -113,7 +106,6 @@ fn start_assistant_manager(app: tauri::AppHandle) {
 async fn api(app: tauri::AppHandle, action: String, payload: Value) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let result=dispatch(&app,&action,payload);
-        #[cfg(target_os="macos")]
         if action=="restore" && result.as_ref().is_ok_and(|v|v["restored"]==true) {
             let state=app.state::<AppState>();
             let store=state.store.lock().map_err(lock_error)?;
@@ -138,9 +130,7 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
     if !payload.is_object() { return Err("Invalid request.".into()); }
     let state = app.state::<AppState>();
     match action {
-        #[cfg(target_os="macos")]
         "settings_get" => Ok(serde_json::to_value(state.preferences.lock().map_err(lock_error)?.clone()).map_err(|e|e.to_string())?),
-        #[cfg(target_os="macos")]
         "settings_theme" => {
             let mut saved = state.preferences.lock().map_err(lock_error)?;
             let mut next = saved.clone();
@@ -148,7 +138,6 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             next.save(&state.data_dir)?; *saved = next;
             Ok(json!({"theme":saved.theme}))
         },
-        #[cfg(target_os="macos")]
         "assistant_set_enabled" => {
             let enabled = payload["enabled"].as_bool().ok_or("AI enabled must be true or false.")?;
             // Match the manager's assistant -> preferences lock order. A retry
@@ -177,23 +166,23 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             assistant.request_start();
             let status = assistant.status();cache_status(&state,status.clone());Ok(status)
         },
-        #[cfg(target_os="macos")]
         "data_safety_status" => Ok(state.data_safety.lock().map_err(lock_error)?.status()),
-        #[cfg(target_os="macos")]
         "backup_open_folder" => {
             let directory=state.data_safety.lock().map_err(lock_error)?.directory.clone();
             fs::create_dir_all(&directory).map_err(|e|e.to_string())?;
+            #[cfg(windows)]
+            { use std::os::windows::process::CommandExt;
+              std::process::Command::new("explorer.exe").arg(&directory).creation_flags(0x08000000).spawn().map_err(|e|e.to_string())?; }
+            #[cfg(not(windows))]
             std::process::Command::new("/usr/bin/open").arg(&directory).status().map_err(|e|e.to_string())?;
             Ok(json!({"opened":true}))
         },
-        #[cfg(target_os="macos")]
         "backup_now" => {
             let store=state.store.lock().map_err(lock_error)?;
             let mut safety=state.data_safety.lock().map_err(lock_error)?;
             if safety.recovery_pending {return Err("Restore your earlier backup before creating a new backup of this empty database.".into());}
             safety.capture(&store); Ok(safety.status())
         },
-        #[cfg(target_os="macos")]
         "backup_choose_folder" => {
             if let Some(folder)=app.dialog().file().blocking_pick_folder() {
                 let directory=folder.into_path().map_err(|e|e.to_string())?;
@@ -208,7 +197,6 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             }
             Ok(state.data_safety.lock().map_err(lock_error)?.status())
         },
-        #[cfg(target_os="macos")]
         "save_product" | "stock_entry" | "stock_out" => {
             let mut store=state.store.lock().map_err(lock_error)?;
             state.data_safety.lock().map_err(lock_error)?.execute(&mut store,action,payload)
@@ -221,7 +209,6 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             Ok(json!({"ok":true}))
         },
         "assistant_ask" => {
-            #[cfg(target_os="macos")]
             if !state.runtime_shutdown.ai_enabled() { return Err("AI is turned off. Enable it in Settings or choose Retry AI.".into()); }
             let question = field(&payload, "question")?;
             let session = session_id(&payload)?;
@@ -231,13 +218,11 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             // model has no database connection, write tool, SQL or OS interface.
             let snapshot = state.store.lock().map_err(lock_error)?.execute("snapshot", json!({}))?;
             let result = assistant.ask(&question, &session, &snapshot);
-            #[cfg(target_os="macos")]
             remember_ai_pause(&state, &assistant.status());
             cache_status(&state, assistant.status());
             result
         },
         "voice_start" => {
-            #[cfg(target_os="macos")]
             if !state.runtime_shutdown.ai_enabled() { return Err("AI and voice are turned off. Enable AI in Settings.".into()); }
             let mut assistant = state.assistant.lock().map_err(lock_error)?;
             let result = assistant.start_voice();
@@ -255,7 +240,6 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             Ok(json!({"ok":true}))
         },
         "voice_listen" | "voice_speak" => {
-            #[cfg(target_os="macos")]
             if !state.runtime_shutdown.ai_enabled() { return Err("AI and voice are turned off.".into()); }
             let language = payload["language"].as_str().unwrap_or("auto");
             let mut assistant = state.assistant.lock().map_err(lock_error)?;
@@ -312,41 +296,28 @@ pub fn run() {
             let bundled = bundled_directory(&resource_dir, executable_dir, "ai");
             let voice = bundled_directory(&resource_dir, executable_dir, "voice");
             let saved: Value = fs::read(data_dir.join("settings.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(json!({}));
-            #[cfg(target_os="macos")]
             let preferences = desktop_settings::Preferences::load(&data_dir);
             let config = resolve_config(&saved, &bundled);
             let mut assistant = Assistant::new().map_err(std::io::Error::other)?;
             assistant.set_performance(config["context_size"].as_u64().unwrap_or(4096) as u32, config["cpu_threads"].as_u64().unwrap_or(4) as u32).map_err(std::io::Error::other)?;
             let configured = assistant.set_configuration(config["server_path"].as_str().unwrap().into(), config["model_path"].as_str().unwrap().into()).is_ok();
-            #[cfg(target_os="macos")]
             if !preferences.ai_enabled { assistant.restore_paused(&preferences.ai_pause_reason); }
             else if configured { assistant.request_start(); }
-            #[cfg(not(target_os="macos"))]
-            if configured { assistant.request_start(); }
             if let Err(error)=assistant.configure_bundled_voice(voice.join("runtime").join(runtime_name("voice-worker")).to_string_lossy().into_owned(), voice.to_string_lossy().into_owned()) { eprintln!("Bundled voice initialization: {error}; resource directory: {}",voice.display()); }
             let status = assistant.status();
             let runtime_shutdown = assistant.shutdown_handle();
             let voice_shutdown = assistant.voice_shutdown_handle();
-            #[cfg(target_os="macos")]
             let database_existed=data_safety::validate_live_path(&data_dir.join("inventory.db")).map_err(std::io::Error::other)?;
-            #[cfg(target_os="macos")]
             let mut safety={
                 let mut safety=data_safety::DataSafety::new(app.path().home_dir()?.join("Inventory Manager Backups"),preferences.additional_backup_directory.as_ref().map(PathBuf::from),database_existed);
                 safety.protect_recovery(&data_dir).map_err(std::io::Error::other)?;safety
             };
             let store = Store::open(&data_dir.join("inventory.db")).map_err(std::io::Error::other)?;
-            #[cfg(target_os="macos")]
             let data_safety={safety.startup(&store);Mutex::new(safety)};
-            #[cfg(not(target_os="macos"))]
-            if let Err(error) = write_config(&data_dir, &config) { eprintln!("{error}"); }
-            #[cfg(target_os="macos")]
             if let Err(error) = preferences.save(&data_dir) { eprintln!("{error}"); }
             app.manage(AppState {
-                #[cfg(target_os="macos")]
                 data_safety,
-                #[cfg(target_os="macos")]
                 preferences: Mutex::new(preferences),
-                #[cfg(target_os="macos")]
                 data_dir: data_dir.clone(),
                 store: Mutex::new(store), assistant: Mutex::new(assistant), assistant_status: Mutex::new(status), runtime_shutdown, voice_shutdown, manager_shutdown: AtomicBool::new(false) });
             start_assistant_manager(app.handle().clone());

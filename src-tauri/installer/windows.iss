@@ -2,13 +2,16 @@
 #ifndef RepoRoot
   #error RepoRoot must be provided
 #endif
+#ifndef AppExecutable
+  #error AppExecutable must be provided
+#endif
 #ifndef WebViewInstaller
   #error WebViewInstaller must be provided
 #endif
 [Setup]
 AppId=com.repaircenter.inventorymanager
 AppName=Inventory Manager
-AppVersion=2.0.4
+AppVersion=2.0.6
 AppPublisher=Al Mohtarif Repair Center
 DefaultDirName={localappdata}\Programs\Inventory Manager
 DefaultGroupName=Inventory Manager
@@ -18,7 +21,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#RepoRoot}\deliverables
-OutputBaseFilename=Inventory Manager_2.0.4_x64-setup
+OutputBaseFilename=Inventory Manager_2.0.6_x64-setup
 SetupIconFile={#RepoRoot}\src-tauri\icons\icon.ico
 UninstallDisplayIcon={app}\inventory-manager.exe
 Compression=zip
@@ -31,7 +34,7 @@ DisableWelcomePage=no
 [Tasks]
 Name: desktopicon; Description: Create a desktop shortcut; GroupDescription: Shortcuts:
 [Files]
-Source: "{#RepoRoot}\src-tauri\target\release\inventory-manager.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#AppExecutable}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}\src-tauri\resources\*"; DestDir: "{app}\resources"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#WebViewInstaller}"; DestDir: "{tmp}"; DestName: "Inventory-WebView2.exe"; Flags: deleteafterinstall; Check: NeedsWebView
 [Icons]
