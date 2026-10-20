@@ -155,7 +155,7 @@ mod tests {
         safe.execute(&mut store,"stock_out",json!({"cr_number":"321","lines":[{"item_code":"11234","quantity":2,"unit_price_baisa":2500}]})).unwrap();
         assert_eq!(records(&root).len(),2);
         let product=store.snapshot(&json!({})).unwrap()["products"][0].clone();
-        safe.execute(&mut store,"save_product",json!({"product":{"id":product["id"],"item_code":"11234","name":"شاشة سامسونج محدثة","model_description":"GT-I9300"}})).unwrap();assert_eq!(records(&root).len(),3);
+        safe.execute(&mut store,"save_product",json!({"password":"1234","product":{"id":product["id"],"item_code":"11234","name":"شاشة سامسونج محدثة","model_description":"GT-I9300"}})).unwrap();assert_eq!(records(&root).len(),3);
         let mut other=Store::open(&dir.path().join("windows.db")).unwrap();other.restore(safe.latest.as_ref().unwrap()).unwrap();
         let snapshot=other.snapshot(&json!({})).unwrap();assert_eq!(snapshot["summary"]["total_units"],3);assert_eq!(snapshot["sale_lines"][0]["cr_number"],"321");
         other.restore(&first).unwrap();assert_eq!(other.snapshot(&json!({})).unwrap()["summary"]["total_units"],5);

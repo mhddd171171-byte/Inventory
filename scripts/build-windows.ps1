@@ -14,4 +14,4 @@ if(-not $webView){throw 'The offline Microsoft WebView2 x64 installer is missing
 $appExecutable=if($env:CARGO_TARGET_DIR){Join-Path $env:CARGO_TARGET_DIR "release/inventory-manager.exe"}else{Join-Path $repoRoot "src-tauri/target/release/inventory-manager.exe"}
 & $compiler "/DAppExecutable=$appExecutable" "/DRepoRoot=$repoRoot" "/DWebViewInstaller=$($webView.FullName)" (Join-Path $repoRoot 'src-tauri/installer/windows.iss')
 if($LASTEXITCODE -ne 0){throw 'Offline installer compilation failed.'}
-Write-Output (Join-Path $repoRoot 'deliverables/Inventory Manager_2.0.7_x64-setup.exe')
+Write-Output (Join-Path $repoRoot 'deliverables/Inventory Manager_2.0.8_x64-setup.exe')
