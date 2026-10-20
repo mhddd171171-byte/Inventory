@@ -37,10 +37,11 @@ release = api("releases", {"tag_name": tag, "target_commitish": os.environ["GITH
     "name": f"Inventory Manager {version} — Intel macOS offline installer",
     "draft": True, "prerelease": False,
     "body": f"Intel macOS 13+ build with bundled offline AI and bilingual voice. {signing}.\n\n"
-      "Version 2.0.7 fixes startup/restore rejection of valid Windows and Mac databases whose schema differs only in LF/CRLF line endings. Strict schema and ledger validation remain enforced. Automatic per-save backups and recovery safeguards are retained. "
-      "Mac Settings includes AI off/on, Light/Dark/System appearance, and manual Retry AI. Failed startup or a 20-minute deadline turns AI off persistently, with no automatic retry. Windows 2.0.7 is packaged separately with the same features. "
-      "Native build, model hashes, mounted DMG worker initialization, installed Applications launch with a Windows CRLF fixture database, automatic backups and persistent missing-database recovery safeguards, current native AI control tests, and 68 historical native conversation replies passed verification. "
-      "One overly strict intent assertion was corrected to accept a database-accurate combined quantity/value reply; the acceptance report preserves the original result and review. Customer hardware and microphone/speaker testing remain necessary.\n\n"
+      "Version 2.0.8 adds password-protected product, purchase-batch and Stock Out corrections, recovery copies before editing, recalculated FIFO/report totals, Settings database import/restore, and missing-data review warnings. "
+      "Use password 1234 to authorize an edit. Invalid corrections are rejected without changing business records. Database restore replaces records rather than merging. "
+      "All AI and voice resources remain bundled. Persistent AI off/on, themes, timeout/retry behavior and automatic backups are retained. "
+      "Native backend tests, browser interface workflows, a fresh local-model conversation evaluation, mounted DMG and installed launch checks are required by this build. "
+      "The customer's physical hardware and microphone/speaker quality remain untested.\n\n"
       "Actions artifacts contain small verification reports; installer files are published as Release assets. "
       "Installers larger than GitHub's 2 GiB release-asset limit are preserved as numbered parts plus INSTALLER-PARTS.json. "
       "The project owner reassembles the parts and supplies the resulting single DMG to the customer via Google Drive."})

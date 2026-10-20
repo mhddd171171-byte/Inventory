@@ -1,4 +1,7 @@
 //! Single-user SQLite persistence with an immutable FIFO ledger and validated domain operations.
+mod corrections;
+#[cfg(test)] mod correction_tests;
+mod quality;
 use chrono::{Local, SecondsFormat, Utc};
 use rusqlite::{backup::Backup, params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
 use serde_json::{json, Value};
@@ -24,12 +27,12 @@ impl Store {
  }
  pub fn execute(&mut self,action:&str,payload:Value)->Result<Value,String>{
   if !payload.is_object(){return Err("Request payload must be an object.".into());}
-  match action{"status"=>Ok(json!({"ready":true,"schema_version":2})),"snapshot"=>self.snapshot(&payload),"save_product"=>self.save_product(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),_=>Err("Unknown application action.".into())}
+  match action{"status"=>Ok(json!({"ready":true,"schema_version":2})),"snapshot"=>self.snapshot(&payload),"save_product"=>{if payload["product"]["id"].as_str().is_some_and(|id|!id.is_empty()){let result=self.edit_record(&json!({"kind":"product","id":payload["product"]["id"],"password":payload["password"],"changes":payload["product"]}))?;let mut product=self.product(payload["product"]["id"].as_str().unwrap())?;product["pre_edit_backup"]=result["pre_edit_backup"].clone();Ok(product)}else{self.save_product(&payload)}},"edit_record"=>self.edit_record(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),_=>Err("Unknown application action.".into())}
  }
  /// Read-only business snapshot; a read transaction prevents mixed report/dashboard states.
  pub fn snapshot(&self,payload:&Value)->Result<Value,String>{
   let month=reporting_month(payload)?;let tx=self.conn.unchecked_transaction().map_err(db_error)?;
-  let products=query(&tx,PRODUCT_SELECT,product_row)?;let entries=query(&tx,ENTRY_SELECT,entry_row)?;let lines=query(&tx,LINE_SELECT,line_row)?;
+  let mut products=query(&tx,PRODUCT_SELECT,product_row)?;let mut entries=query(&tx,ENTRY_SELECT,entry_row)?;let mut lines=query(&tx,LINE_SELECT,line_row)?;let data_quality=quality::annotate(&tx,&mut products,&mut entries,&mut lines)?;
   let sales=query(&tx,"SELECT s.id,s.cr_number,s.created_at,s.revenue_baisa,s.cost_baisa,s.profit_baisa,s.legacy,s.legacy_reference,COALESCE(SUM(l.quantity),0) FROM sales s LEFT JOIN sale_lines l ON l.sale_id=s.id GROUP BY s.id ORDER BY s.created_at DESC,s.rowid DESC",|r|Ok(json!({"id":r.get::<_,String>(0)?,"cr_number":r.get::<_,Option<String>>(1)?,"created_at":r.get::<_,String>(2)?,"revenue_baisa":r.get::<_,Option<i64>>(3)?,"cost_baisa":r.get::<_,Option<i64>>(4)?,"profit_baisa":r.get::<_,Option<i64>>(5)?,"legacy":r.get::<_,bool>(6)?,"legacy_reference":r.get::<_,String>(7)?,"total_quantity":r.get::<_,i64>(8)?})))?;
   let monthly:Vec<Value>=lines.iter().filter(|l|l["created_at"].as_str().is_some_and(|date|date.starts_with(&month))).cloned().collect();
   let unknown=sum_field(&products,"unknown_cost_units")?;let known=sum_field(&products,"known_inventory_value_baisa")?;
@@ -37,7 +40,7 @@ impl Store {
   let low_stock:Vec<Value>=products.iter().filter(|p|p["quantity"].as_i64().unwrap_or(0)<=2).cloned().collect();
   let monthly_summary:Vec<Value>=products.iter().map(|p|{let sold:Vec<Value>=monthly.iter().filter(|l|l["product_id"]==p["id"]).cloned().collect();Ok(json!({"product_id":p["id"],"item_code":p["item_code"],"product_name":p["name"],"quantity_sold":sum_field(&sold,"quantity")?,"quantity_remaining":p["quantity"],"cost_baisa":nullable_sum(&sold,"cost_baisa")?,"revenue_baisa":nullable_sum(&sold,"revenue_baisa")?,"profit_baisa":nullable_sum(&sold,"profit_baisa")?}))}).collect::<Result<_,String>>()?;
   let migration:Option<String>=tx.query_row("SELECT value FROM migration_info WHERE key='summary'",[],|r|r.get(0)).optional().map_err(db_error)?;tx.commit().map_err(db_error)?;
-  Ok(json!({"month":month,"products":products,"entries":entries,"sales":sales,"sale_lines":lines,"monthly_sales_lines":monthly,"monthly_summary":monthly_summary,"summary":summary,"low_stock":low_stock,"migration":migration.and_then(|v|serde_json::from_str::<Value>(&v).ok()).unwrap_or(json!({"legacy_products":0,"code_changes":[],"message":""}))}))
+  Ok(json!({"data_quality":data_quality,"month":month,"products":products,"entries":entries,"sales":sales,"sale_lines":lines,"monthly_sales_lines":monthly,"monthly_summary":monthly_summary,"summary":summary,"low_stock":low_stock,"migration":migration.and_then(|v|serde_json::from_str::<Value>(&v).ok()).unwrap_or(json!({"legacy_products":0,"code_changes":[],"message":""}))}))
  }
  fn product(&self,id:&str)->Result<Value,String>{self.conn.query_row(&format!("{PRODUCT_SELECT} WHERE p.id=?1"),[id],product_row).map_err(db_error)}
  fn save_product(&mut self,payload:&Value)->Result<Value,String>{
@@ -81,9 +84,9 @@ impl Store {
   let staging=self.path.with_file_name(format!("restore-validated-{}.db",Uuid::new_v4().simple()));
   let result=(||{match version(&incoming)?{1=>validate_legacy(&incoming)?,2=>validate_database(&incoming)?,_=>return Err("The backup has an unsupported schema version.".into())}
    // Migrate a private copy before touching live data. A failed migration is harmless.
-   copy_database(&incoming,&staging)?;let mut staged=Connection::open(&staging).map_err(db_error)?;staged.pragma_update(None,"foreign_keys","ON").map_err(db_error)?;if version(&staged)?==1{migrate_legacy(&mut staged,source)?;}validate_database(&staged)?;
+   copy_database(&incoming,&staging)?;let mut staged=Connection::open(&staging).map_err(db_error)?;staged.pragma_update(None,"foreign_keys","ON").map_err(db_error)?;if version(&staged)?==1{migrate_legacy(&mut staged,source)?;}validate_database(&staged)?;let mut imported_products=query(&staged,PRODUCT_SELECT,product_row)?;let mut imported_entries=query(&staged,ENTRY_SELECT,entry_row)?;let mut imported_lines=query(&staged,LINE_SELECT,line_row)?;let imported_quality=quality::annotate(&staged,&mut imported_products,&mut imported_entries,&mut imported_lines)?;
    let pre=self.path.with_file_name(format!("before-restore-{}-{}.db",Utc::now().format("%Y%m%d-%H%M%S"),Uuid::new_v4().simple()));self.backup(&pre)?;
-   {let backup=Backup::new(&staged,&mut self.conn).map_err(db_error)?;backup.run_to_completion(128,Duration::from_millis(5),None).map_err(db_error)?;}configure(&self.conn)?;Ok(json!({"restored":true,"pre_restore_backup":pre.to_string_lossy()}))})();
+   {let backup=Backup::new(&staged,&mut self.conn).map_err(db_error)?;backup.run_to_completion(128,Duration::from_millis(5),None).map_err(db_error)?;}configure(&self.conn)?;Ok(json!({"restored":true,"pre_restore_backup":pre.to_string_lossy(),"data_quality":imported_quality}))})();
   let _=incoming.execute_batch("ROLLBACK;");drop(incoming);let _=fs::remove_file(staging);result
  }
 }
@@ -215,7 +218,7 @@ mod tests{
   for code in ["","0","000","-1","1.0","A12","12 OR 1=1","١٢"]{assert!(f.call("save_product",json!({"product":{"item_code":code,"name":"Display","model_description":"Phone"}})).is_err());}
   let p=f.call("save_product",json!({"product":{"item_code":"0011234","name":"iPhone display","model_description":"17 Pro Max"}})).unwrap();assert_eq!(p["item_code"],"11234");assert_eq!(p["quantity"],0);
   assert!(f.call("save_product",json!({"product":{"item_code":"11234","name":"Duplicate","model_description":"x"}})).unwrap_err().contains("already"));
-  let edited=f.call("save_product",json!({"product":{"id":p["id"],"item_code":"11235","name":"Edited","model_description":"Updated model","quantity":999}})).unwrap();assert_eq!(edited["quantity"],0);assert_eq!(edited["item_code"],"11235");
+  let edited=f.call("save_product",json!({"password":"1234","product":{"id":p["id"],"item_code":"11235","name":"Edited","model_description":"Updated model","quantity":999}})).unwrap();assert_eq!(edited["quantity"],0);assert_eq!(edited["item_code"],"11235");
  }
  #[test]fn fifo_costs_are_immutable_and_sale_prices_are_actual(){
   let mut f=Fixture::new();let first=f.entry("11234",5,10000);f.entry("11234",3,12000);
@@ -247,7 +250,7 @@ mod tests{
   for month in ["2026-13","2026-00","2026-1","0000-01","2026-01' OR 1=1","éééé-01"]{assert!(f.store.snapshot(&json!({"month":month})).is_err());}
  }
  #[test]fn edited_products_preserve_historical_sale_names_codes_and_prices(){
-  let mut f=Fixture::new();f.entry("1",2,111);f.sale("22","1",1,333).unwrap();let p=f.snapshot()["products"][0].clone();f.call("save_product",json!({"product":{"id":p["id"],"item_code":"99","name":"Renamed","model_description":"New"}})).unwrap();let s=f.snapshot();assert_eq!(s["sale_lines"][0]["item_code"],"1");assert_eq!(s["sale_lines"][0]["product_name"],"Screen 1 شاشة");assert_eq!(s["monthly_summary"][0]["item_code"],"99");assert_eq!(s["monthly_summary"][0]["quantity_sold"],1);
+  let mut f=Fixture::new();f.entry("1",2,111);f.sale("22","1",1,333).unwrap();let p=f.snapshot()["products"][0].clone();f.call("save_product",json!({"password":"1234","product":{"id":p["id"],"item_code":"99","name":"Renamed","model_description":"New"}})).unwrap();let s=f.snapshot();assert_eq!(s["sale_lines"][0]["item_code"],"1");assert_eq!(s["sale_lines"][0]["product_name"],"Screen 1 شاشة");assert_eq!(s["monthly_summary"][0]["item_code"],"99");assert_eq!(s["monthly_summary"][0]["quantity_sold"],1);
  }
  #[test]fn concurrent_connections_cannot_spend_the_same_stock(){
   let mut f=Fixture::new();f.entry("1",5,100);let gate=std::sync::Arc::new(std::sync::Barrier::new(2));let handles:Vec<_>=(0..2).map(|_|{let gate=gate.clone();let path=f.store.path.clone();std::thread::spawn(move||{let mut store=Store::open(&path).unwrap();gate.wait();store.execute("stock_out",json!({"cr_number":"1","lines":[{"item_code":"1","quantity":4,"unit_price_baisa":200}]}))})}).collect();let results:Vec<_>=handles.into_iter().map(|h|h.join().unwrap()).collect();assert_eq!(results.iter().filter(|r|r.is_ok()).count(),1);assert_eq!(f.snapshot()["summary"]["total_units"],1);validate_database(&f.store.conn).unwrap();

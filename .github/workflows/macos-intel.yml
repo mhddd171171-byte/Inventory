@@ -21,7 +21,6 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: '13.0'
       PIP_NO_CACHE_DIR: '1'
       CARGO_INCREMENTAL: '0'
-      INVENTORY_AI_ACCEPTANCE_REVIEW: '38598883688'
       # Use ad-hoc signing when no Developer ID identity is configured.
       APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -85,13 +84,14 @@ jobs:
       - name: Provision pinned offline resources
         id: provision
         run: python3.12 scripts/provision-macos-build.py
-      - name: Review unchanged native conversation evidence
-        run: python3.12 scripts/review-macos-acceptance.py
       - name: Test interface and native Mac settings controls
         run: |
           npm ci
           npm test
           npm run build
+          npm install --no-save --package-lock=false playwright
+          npx playwright install chromium
+          MAC_UI_TEST=1 UI_BROWSER_CHANNEL=chromium node tests/ui-flow.mjs
           rustup target add x86_64-apple-darwin
           # Tauri resolves these roots even for unit tests. Real resources are
           # staged and checked by the native packaging step that follows.
@@ -119,6 +119,8 @@ jobs:
             .build/MACOS-SPEECH-SMOKE.json
             .build/MACOS-APP-SMOKE.json
             .build/MACOS-AI-CONTROLS.json
+            tmp/ui/results-v2.json
+            tmp/ui/*.png
           compression-level: 0
           if-no-files-found: error
           retention-days: 14

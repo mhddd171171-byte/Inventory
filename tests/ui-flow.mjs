@@ -88,6 +88,77 @@ try{
     await page.getByRole('button',{name:'New conversation',exact:true}).click();await page.getByRole('heading',{name:'Your local inventory assistant',exact:true}).waitFor();assert.ok(await count('assistant_new_conversation'));await page.getByRole('button',{name:'Backup & restore',exact:true}).click();await page.getByRole('button',{name:'Create backup',exact:true}).click();await page.getByText('Backup saved to C:/TestOnly/backup.db.',{exact:true}).waitFor();await page.getByRole('button',{name:'Close',exact:true}).click();
   });
   if(process.env.MAC_UI_TEST) {
+    await check('Settings import opens a safe database restore screen; cancel and invalid files preserve records',async()=>{
+      const original=await page.evaluate(()=>JSON.stringify(window.__uiTest.products));
+      const before=await count('restore');
+      await page.getByRole('button',{name:'Settings',exact:true}).click();
+      await page.getByRole('button',{name:'Import database (.db)',exact:true}).click();
+      await page.getByRole('heading',{name:'Import / restore database',exact:true}).waitFor();
+      await page.getByText(/it does not merge records/).waitFor();
+      await page.getByText(/Excel and CSV files are not supported/).waitFor();
+      assert.equal(await count('restore'),before);
+      await page.getByRole('button',{name:'Choose database (.db) to restore',exact:true}).click();
+      await page.waitForFunction(n=>window.__uiTest.calls.filter(c=>c.action==='restore').length>n,before);
+      assert.equal(await page.evaluate(()=>JSON.stringify(window.__uiTest.products)),original);
+      assert.equal(await page.getByText(/Backup restored/).count(),0);
+      await page.evaluate(()=>window.__uiTest.failNext='restore');
+      await page.getByRole('button',{name:'Choose database (.db) to restore',exact:true}).click();
+      await page.getByRole('dialog').getByRole('alert').filter({hasText:'Deliberate test backend rejection'}).waitFor();
+      assert.equal(await page.evaluate(()=>JSON.stringify(window.__uiTest.products)),original);
+      await page.getByRole('button',{name:'Close',exact:true}).click();
+    });
+    await check('successful Settings import shows recovery backup and refreshes products and stock alerts',async()=>{
+      await page.evaluate(()=>window.__uiTest.restoreOutcome='success');
+      await page.getByRole('button',{name:'Settings',exact:true}).click();
+      await page.getByRole('button',{name:'Import database (.db)',exact:true}).click();
+      assert.equal(await page.getByRole('alert').count(),0);
+      await page.getByRole('button',{name:'Choose database (.db) to restore',exact:true}).click();
+      await page.getByText('Backup restored. A copy of the previous database was saved to C:/TestOnly/before-restore.db.',{exact:true}).waitFor();
+      await page.getByRole('button',{name:'Close',exact:true}).click();
+      await nav('Products');await page.getByText('Restored screen',{exact:true}).waitFor();
+      assert.equal(await page.locator('tbody tr').count(),1);
+      assert.equal(await page.getByText('Samsung S3 screen',{exact:true}).count(),0);
+      await nav('Out of Stock');await page.getByText('Restored screen',{exact:true}).waitFor();
+      assert.equal(await page.getByTestId('out-of-stock-count').innerText(),'1');
+      await page.evaluate(()=>window.__uiTest.restoreOutcome='cancelled');
+    });
+    await check('imported missing Item Code warning opens a password-protected editor; wrong password and cancel preserve data',async()=>{
+      await nav('Products');await page.getByText('Needs review',{exact:false}).waitFor();mkdirSync('tmp/ui',{recursive:true});await page.screenshot({path:'tmp/ui/import-review-warning.png',fullPage:true,animations:'disabled'});
+      await page.getByRole('button',{name:'Edit product 900001',exact:true}).click();
+      const dialog=page.getByRole('dialog');await dialog.getByRole('heading',{name:'Edit product',exact:true}).waitFor();
+      assert.equal(await dialog.getByLabel('Edit password *',{exact:true}).getAttribute('type'),'password');
+      await dialog.getByLabel('Product Name *',{exact:true}).fill('Reviewed screen');
+      await dialog.getByLabel('Edit password *',{exact:true}).fill('wrong');await dialog.getByRole('button',{name:'Save correction',exact:true}).click();
+      await dialog.getByText('Incorrect edit password. No records were changed.',{exact:true}).waitFor();
+      assert.equal(await page.evaluate(()=>window.__uiTest.products[0].name),'Restored screen');
+      await dialog.getByLabel('Edit password *',{exact:true}).fill('1234');
+      await dialog.getByRole('button',{name:'Save correction',exact:true}).click();
+      await dialog.getByText('Correction saved. Recovery backup: C:/TestOnly/before-edit.db',{exact:true}).waitFor();
+      await dialog.getByRole('button',{name:'Close',exact:true}).click();
+      await page.getByText('Reviewed screen',{exact:true}).waitFor();assert.equal(await page.getByText('Needs review',{exact:false}).count(),0);
+      await page.getByRole('button',{name:'Edit product 900001',exact:true}).click();
+      await page.getByLabel('Product Name *',{exact:true}).fill('Cancelled name');
+      await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await page.evaluate(()=>window.__uiTest.products[0].name),'Reviewed screen');
+    });
+    await check('stock entry and Stock Out history can be corrected and report source actions remain available',async()=>{
+      await entry('900001',5,'1.000');
+      await page.getByRole('button',{name:'Edit stock entry 900001',exact:true}).click();
+      await page.getByRole('dialog').getByLabel('Quantity *',{exact:true}).fill('6');await page.getByRole('dialog').getByLabel('Buying Price per Unit (OMR) *',{exact:true}).fill('2.000');
+      await page.getByLabel('Edit password *',{exact:true}).fill('1234');await page.screenshot({path:'tmp/ui/edit-stock-password.png',fullPage:true,animations:'disabled'});await page.getByRole('button',{name:'Save correction',exact:true}).click();
+      await page.getByText('Correction saved. Recovery backup: C:/TestOnly/before-edit.db',{exact:true}).waitFor();await page.getByRole('button',{name:'Close',exact:true}).click();
+      assert.equal(await page.evaluate(()=>window.__uiTest.products[0].quantity),6);
+      await nav('Stock Out');await page.getByLabel('Customer CR Number *',{exact:true}).fill('77');await outLine(1,'900001','2','4.000');
+      await page.getByRole('button',{name:'Save Stock Out',exact:true}).click();await idle();
+      await page.getByRole('button',{name:'Edit Stock Out 77 item 900001',exact:true}).click();
+      const dialog=page.getByRole('dialog');await dialog.getByLabel('Quantity *',{exact:true}).fill('1');
+      await dialog.getByLabel('Selling Price per Unit (OMR) *',{exact:true}).fill('5.000');await dialog.getByLabel('Customer CR Number *',{exact:true}).fill('88');
+      await dialog.getByLabel('Edit password *',{exact:true}).fill('1234');await page.screenshot({path:'tmp/ui/edit-stock-out-password.png',fullPage:true,animations:'disabled'});await dialog.getByRole('button',{name:'Save correction',exact:true}).click();
+      await dialog.getByText('Correction saved. Recovery backup: C:/TestOnly/before-edit.db',{exact:true}).waitFor();await dialog.getByRole('button',{name:'Close',exact:true}).click();
+      assert.equal(await page.evaluate(()=>window.__uiTest.products[0].quantity),5);
+      await page.getByRole('button',{name:'Edit Stock Out 88 item 900001',exact:true}).waitFor();
+      await nav('Search');await page.getByRole('button',{name:'Edit Stock Out 88 item 900001',exact:true}).waitFor();await page.getByRole('button',{name:'Edit stock entry 900001',exact:true}).waitFor();
+      await nav('Reports');await page.getByRole('button',{name:'Edit sales history',exact:true}).click();await page.getByRole('heading',{name:'Stock Out',exact:true}).waitFor();
+    });
     await check('Mac automatic backup controls and committed-save warnings remain visible without blocking inventory',async()=>{
       await page.getByRole('button',{name:'Settings',exact:true}).click();await page.getByRole('heading',{name:'Automatic backups',exact:true}).waitFor();await page.getByRole('button',{name:'Back up now',exact:true}).click();await page.getByText('latest.db',{exact:false}).waitFor();await page.getByRole('button',{name:'Add USB / backup folder',exact:true}).click();await page.getByText('/Volumes/USB',{exact:false}).waitFor();await page.getByRole('button',{name:'Close',exact:true}).click();
       await page.evaluate(()=>{window.__uiTest.backupWarning='Inventory is saved, but its automatic backup could not be created.';window.dispatchEvent(new Event('inventory-data-safety'));});await page.getByText('Inventory is saved, but its automatic backup could not be created.',{exact:true}).waitFor();await nav('Stock Entry');await page.getByRole('button',{name:'Save Stock Entry',exact:true}).waitFor();await page.evaluate(()=>{window.__uiTest.backupWarning='';window.__uiTest.recoveryPending=true;window.dispatchEvent(new Event('inventory-data-safety'));});await page.getByText('Earlier backups were found, but the live database was missing.',{exact:false}).waitFor();await page.evaluate(()=>{window.__uiTest.recoveryPending=false;window.dispatchEvent(new Event('inventory-data-safety'));});

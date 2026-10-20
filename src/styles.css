@@ -1351,3 +1351,5 @@ section[hidden] { display: none; }
 .chat-details div { margin-top:8px; white-space:pre-wrap; }
 .chat-interruption { display:block; margin-top:8px; font-size:11px; color:#727e68; }
 @media (max-width:1100px) { .search-fields {grid-template-columns:1fr 1fr;} }
+
+.data-warning{display:block;color:#945900;font-size:12px;font-weight:600;margin-top:6px;white-space:normal;min-width:130px}.data-warning small{display:block;max-width:320px;font-weight:400;font-size:11px;line-height:1.5}html[data-theme="dark"] .data-warning{color:#ffc66d}

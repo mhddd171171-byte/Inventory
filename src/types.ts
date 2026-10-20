@@ -7,11 +7,13 @@ export type AssistantStatus = {
 };
 export type VoiceStatus = { configured: boolean; ready: boolean; active: boolean; message: string };
 export type Product = {
+  data_issues?: string[];
   id: string; item_code: string; name: string; model_description: string; quantity: number;
   inventory_value_baisa: number | null; unknown_cost_units: number;
   stock_status: 'normal' | 'low' | 'critical' | 'out'; created_at: string; updated_at: string;
 };
 export type StockEntry = {
+  data_issues?: string[];
   id: string; product_id: string; item_code: string; product_name: string;
   quantity: number; remaining_quantity: number; unit_cost_baisa: number | null; created_at: string;
 };
@@ -21,6 +23,7 @@ export type Sale = {
   legacy?: boolean; legacy_reference?: string;
 };
 export type SaleLine = {
+  data_issues?: string[];
   id: string; sale_id: string; product_id: string; item_code: string; product_name: string;
   model_description: string; cr_number: string | null; quantity: number;
   unit_price_baisa: number | null; revenue_baisa: number | null; cost_baisa: number | null;
@@ -31,6 +34,7 @@ export type MonthlyProduct = {
   quantity_remaining: number; cost_baisa: number | null; revenue_baisa: number | null; profit_baisa: number | null;
 };
 export type Snapshot = {
+  data_quality?: {products:number;stock_entries:number;sale_lines:number;generated_item_codes:number};
   month: string; products: Product[]; entries: StockEntry[]; sales: Sale[]; sale_lines: SaleLine[];
   monthly_sales_lines: SaleLine[]; monthly_summary: MonthlyProduct[]; low_stock: Product[];
   summary: {
