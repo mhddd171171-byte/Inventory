@@ -2,7 +2,7 @@ import { createContext, useContext, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Product, SaleLine, StockEntry } from './types';
 import { call } from './api';
-import { numericReference, positiveQuantity, toBaisa } from './utils';
+import { matchesProduct, numericReference, positiveQuantity, toBaisa } from './utils';
 import { Dialog, Field, Notice, errorMessage } from './ui';
 
 export type EditTarget = {kind:'product';record:Product}|{kind:'entry';record:StockEntry}|{kind:'sale';record:SaleLine};
@@ -12,8 +12,11 @@ export function DataIssues({issues}:{issues?:string[]}) {
  return issues?.length ? <span className="data-warning" role="note" title={issues.join('\n')} aria-label={`Needs review: ${issues.join(' ')}`}>⚠ Needs review<small>{issues.join(' ')}</small></span> : null;
 }
 function localDate(value:string){const date=new Date(value);if(Number.isNaN(date.getTime()))return '';const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);return local.toISOString().slice(0,19);}
-export default function RecordEditor({target,saved,close}:{target:EditTarget;saved:()=>Promise<void>;close:()=>void}) {
+export default function RecordEditor({target,products,saved,close}:{target:EditTarget;products:Product[];saved:()=>Promise<void>;close:()=>void}) {
  const {kind,record}=target;
+ const openEditor=useRecordEditor();
+ const [search,setSearch]=useState(''),[switchProduct,setSwitchProduct]=useState<Product|null>(null);
+ const matches=search.trim()?products.filter(p=>matchesProduct(p,search)):[];
  const [code,setCode]=useState(record.item_code),[name,setName]=useState(kind==='product'?record.name:''),[model,setModel]=useState(kind==='product'?record.model_description:'');
  const [quantity,setQuantity]=useState(kind==='product'?'':String(record.quantity));
  const originalPrice=kind==='entry'?record.unit_cost_baisa:kind==='sale'?record.unit_price_baisa:null;
@@ -33,7 +36,12 @@ export default function RecordEditor({target,saved,close}:{target:EditTarget;sav
   <Notice text={error}/><Notice text={result} kind="success"/>
   <DataIssues issues={record.data_issues}/>
   <p>A recovery backup is saved before each correction. Stock, buying costs, profit and reports are recalculated together.</p>
-  {!result&&<><div className="form-grid">
+  {!result&&<><section className="edit-search" aria-label="Search inventory inside editor">
+   <Field label="Search item by code, name or model"><input type="search" maxLength={200} dir="auto" value={search} placeholder="Item Code, Samsung screen, device model…" disabled={busy} onKeyDown={e=>{if(e.key==='Enter')e.preventDefault();}} onChange={e=>{setSearch(e.target.value);setSwitchProduct(null);}}/></Field>
+   {search.trim()&&<><p className="help-note" role="status">{matches.length?`${matches.length} matching items${matches.length>8?' — showing the first 8; refine your search':''}`:'No matching item. Try a partial name or model.'}</p><div className="edit-search-results">{matches.slice(0,8).map(p=><button key={p.id} type="button" className="btn edit-search-result" disabled={busy||kind==='product'&&p.id===record.id} onClick={()=>{if(kind==='product')setSwitchProduct(p);else{setCode(p.item_code);setSearch('');}}}><span dir="auto"><strong>{p.item_code} · {p.name}</strong><small>{p.model_description}</small></span><span>{kind==='product'?p.id===record.id?'Currently editing':'Edit this product':'Use this item'}</span></button>)}</div></>}
+   {switchProduct&&<div className="notice migration" role="status"><p>Open Item Code {switchProduct.item_code} for editing? Unsaved changes in this window will be discarded. No database records change until you enter the password and save.</p><div className="button-row"><button type="button" className="btn" disabled={busy} onClick={()=>{openEditor?.({kind:'product',record:switchProduct});}}>Open selected product</button><button type="button" className="btn" onClick={()=>setSwitchProduct(null)}>Keep editing this record</button></div></div>}
+   {kind!=='product'&&<p className="help-note">Selecting an item changes this record's Item Code. Quantity, price and date stay as entered until you save.</p>}
+  </section><div className="form-grid">
    <Field label="Item Code *"><input required inputMode="numeric" maxLength={30} value={code} onChange={e=>setCode(e.target.value)} disabled={busy}/></Field>
    {kind==='product'?<><Field label="Product Name *"><input required maxLength={200} value={name} dir="auto" onChange={e=>setName(e.target.value)} disabled={busy}/></Field><Field label="Model / Description *" wide><textarea required maxLength={2000} value={model} dir="auto" onChange={e=>setModel(e.target.value)} disabled={busy}/></Field><p className="form-note">To correct quantity or buying price, edit the purchase batch in Stock Entry. Historical sales keep their recorded names unless you edit the Stock Out record.</p></>:<>
     <Field label="Quantity *"><input required inputMode="numeric" value={quantity} onChange={e=>setQuantity(e.target.value)} disabled={busy}/></Field>
