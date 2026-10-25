@@ -209,7 +209,7 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
             Ok(state.data_safety.lock().map_err(lock_error)?.status())
         },
         #[cfg(target_os="macos")]
-        "save_product" | "stock_entry" | "stock_out" | "edit_record" => {
+        "save_product" | "stock_entry" | "stock_out" | "edit_record" | "delete_record" => {
             let mut store=state.store.lock().map_err(lock_error)?;
             state.data_safety.lock().map_err(lock_error)?.execute(&mut store,action,payload)
         },

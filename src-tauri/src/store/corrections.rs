@@ -70,7 +70,7 @@ impl Store {
   Ok(json!({"saved":true,"pre_edit_backup":recovery.to_string_lossy(),"message":"Correction saved. Stock balances, FIFO costs and report totals were recalculated."}))
  }
 }
-fn recalculate(conn:&Connection)->Result<(),String>{
+pub(super) fn recalculate(conn:&Connection)->Result<(),String>{
  conn.execute("DELETE FROM fifo_allocations",[]).map_err(db_error)?;
  let lines=query(conn,"SELECT l.id,l.product_id,l.quantity,l.unit_price_baisa FROM sale_lines l JOIN sales s ON s.id=l.sale_id ORDER BY s.rowid,l.rowid",|r|Ok(json!({"id":r.get::<_,String>(0)?,"product":r.get::<_,String>(1)?,"quantity":r.get::<_,i64>(2)?,"price":r.get::<_,Option<i64>>(3)?})))?;
  for line in lines{

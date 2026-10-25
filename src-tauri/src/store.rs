@@ -1,5 +1,6 @@
 //! Single-user SQLite persistence with an immutable FIFO ledger and validated domain operations.
 mod corrections;
+mod deletions;
 #[cfg(test)] mod correction_tests;
 mod quality;
 use chrono::{Local, SecondsFormat, Utc};
@@ -27,7 +28,7 @@ impl Store {
  }
  pub fn execute(&mut self,action:&str,payload:Value)->Result<Value,String>{
   if !payload.is_object(){return Err("Request payload must be an object.".into());}
-  match action{"status"=>Ok(json!({"ready":true,"schema_version":2})),"snapshot"=>self.snapshot(&payload),"save_product"=>{if payload["product"]["id"].as_str().is_some_and(|id|!id.is_empty()){let result=self.edit_record(&json!({"kind":"product","id":payload["product"]["id"],"password":payload["password"],"changes":payload["product"]}))?;let mut product=self.product(payload["product"]["id"].as_str().unwrap())?;product["pre_edit_backup"]=result["pre_edit_backup"].clone();Ok(product)}else{self.save_product(&payload)}},"edit_record"=>self.edit_record(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),_=>Err("Unknown application action.".into())}
+  match action{"status"=>Ok(json!({"ready":true,"schema_version":2})),"snapshot"=>self.snapshot(&payload),"save_product"=>{if payload["product"]["id"].as_str().is_some_and(|id|!id.is_empty()){let result=self.edit_record(&json!({"kind":"product","id":payload["product"]["id"],"password":payload["password"],"changes":payload["product"]}))?;let mut product=self.product(payload["product"]["id"].as_str().unwrap())?;product["pre_edit_backup"]=result["pre_edit_backup"].clone();Ok(product)}else{self.save_product(&payload)}},"edit_record"=>self.edit_record(&payload),"delete_record"=>self.delete_record(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),_=>Err("Unknown application action.".into())}
  }
  /// Read-only business snapshot; a read transaction prevents mixed report/dashboard states.
  pub fn snapshot(&self,payload:&Value)->Result<Value,String>{

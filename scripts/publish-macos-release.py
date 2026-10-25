@@ -37,7 +37,7 @@ release = api("releases", {"tag_name": tag, "target_commitish": os.environ["GITH
     "name": f"Inventory Manager {version} — Intel macOS offline installer",
     "draft": True, "prerelease": False,
     "body": f"Intel macOS 13+ build with bundled offline AI and bilingual voice. {signing}.\n\n"
-      "Version 2.0.8 adds password-protected product, purchase-batch and Stock Out corrections, recovery copies before editing, recalculated FIFO/report totals, Settings database import/restore, and missing-data review warnings. "
+      "Version 2.0.9 adds Delete record inside Edit, password authorization and explicit confirmation, pre-delete recovery copies, safe FIFO recalculation, and protection for products with history. "
       "Use password 1234 to authorize an edit. Invalid corrections are rejected without changing business records. Database restore replaces records rather than merging. "
       "All AI and voice resources remain bundled. Persistent AI off/on, themes, timeout/retry behavior and automatic backups are retained. "
       "Native backend tests, browser interface workflows, a fresh local-model conversation evaluation, mounted DMG and installed launch checks are required by this build. "
