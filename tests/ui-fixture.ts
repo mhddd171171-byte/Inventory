@@ -2,7 +2,7 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
 import type { Product, Snapshot, StockEntry, Sale, SaleLine } from '../src/types';
 import { currentMonth } from '../src/utils';
-const state={restoreOutcome:'cancelled',calls:[] as {action:string;payload:any}[],products:[] as Product[],entries:[] as StockEntry[],sales:[] as Sale[],lines:[] as SaleLine[],failNext:'',ready:false,voiceActive:false,voiceQueue:['How many screens do we have?','How many did we sell this month?'],interruptNext:null as {text:string;language:string}|null,savedPdfs:[] as number[][],savedExcels:[] as number[][]};
+const state={drive:{configured:true,connected:false,enabled:false,state:'disconnected',message:'Not connected. Local backups remain active.',warning:'',last_success:null as string|null,pending:false,device:'Test computer',folder_available:false,account:null as string|null},restoreOutcome:'cancelled',calls:[] as {action:string;payload:any}[],products:[] as Product[],entries:[] as StockEntry[],sales:[] as Sale[],lines:[] as SaleLine[],failNext:'',ready:false,voiceActive:false,voiceQueue:['How many screens do we have?','How many did we sell this month?'],interruptNext:null as {text:string;language:string}|null,savedPdfs:[] as number[][],savedExcels:[] as number[][]};
 const macosControls=new URLSearchParams(location.search).has('mac');
 const preferences=JSON.parse(sessionStorage.getItem('mac-preferences')||'{"ai_enabled":true,"theme":"system","ai_pause_reason":""}');
 Object.assign(state,{preferences,macosControls});
@@ -57,6 +57,12 @@ mockIPC(async(command,args)=>{
     }
     snapshot();return {deleted:true,pre_delete_backup:'C:/TestOnly/before-delete.db'};
   }
+  if(action==='drive_status')return structuredClone(state.drive);
+  if(action==='drive_connect'){Object.assign(state.drive,{connected:true,enabled:true,state:'up_to_date',message:'Backup uploaded and verified successfully.',last_success:now(),folder_available:true,account:'fixture@example.invalid'});return structuredClone(state.drive);}
+  if(action==='drive_disconnect'){Object.assign(state.drive,{connected:false,enabled:false,state:'disconnected',message:'Not connected. Local backups remain active.',folder_available:false,account:null});return structuredClone(state.drive);}
+  if(action==='drive_set_enabled'){state.drive.enabled=payload.enabled;state.drive.state=payload.enabled?'up_to_date':'paused';state.drive.message=payload.enabled?'Automatic Drive backups enabled.':'Google Drive backups are paused. Local backups remain active.';return structuredClone(state.drive);}
+  if(action==='drive_backup_now'||action==='drive_retry'){Object.assign(state.drive,{state:'queued',message:'Backup queued for upload.',pending:true});return structuredClone(state.drive);}
+  if(action==='drive_open_folder')return {opened:true};
   if(action==='edit_record'){
     if(payload.password!=='1234')throw new Error('Incorrect edit password. No records were changed.');
     const c=payload.changes;

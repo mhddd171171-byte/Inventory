@@ -1,4 +1,5 @@
 mod store;
+mod cloud_backup;
 mod data_safety;
 #[cfg(any(target_os="macos",test))]
 mod mac_installation;
@@ -15,6 +16,7 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 struct AppState {
+    drive: std::sync::Arc<cloud_backup::CloudBackup>,
     data_safety: Mutex<data_safety::DataSafety>,
     preferences: Mutex<desktop_settings::Preferences>,
     data_dir: PathBuf,
@@ -83,6 +85,17 @@ fn remember_ai_pause(state: &AppState, status: &Value) {
     }
 }
 
+fn start_drive_manager(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let state=app.state::<AppState>();
+        while !state.manager_shutdown.load(Ordering::Acquire) {
+            let status=state.data_safety.lock().map(|s|s.status()).unwrap_or(json!({"recovery_pending":true}));
+            state.drive.tick(status["latest_backup"].as_str().map(PathBuf::from),status["recovery_pending"].as_bool().unwrap_or(true),status["last_capture_succeeded"].as_bool().unwrap_or(false));
+            for _ in 0..10 {if state.manager_shutdown.load(Ordering::Acquire){return;}std::thread::sleep(Duration::from_millis(500));}
+        }
+    });
+}
+
 fn start_assistant_manager(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
@@ -130,6 +143,22 @@ fn dispatch(app: &tauri::AppHandle, action: &str, payload: Value) -> Result<Valu
     if !payload.is_object() { return Err("Invalid request.".into()); }
     let state = app.state::<AppState>();
     match action {
+        "drive_status" => Ok(state.drive.status()),
+        "drive_connect" => state.drive.connect(),
+        "drive_disconnect" => state.drive.disconnect(),
+        "drive_set_enabled" => state.drive.set_enabled(payload["enabled"].as_bool().ok_or("Backup enabled must be true or false.")?),
+        "drive_open_folder" => state.drive.open_folder(),
+        "drive_retry" => state.drive.retry(),
+        "drive_backup_now" => {
+            let status=state.drive.status();
+            if status["connected"]!=true||status["enabled"]!=true{return Err("Connect and enable Google Drive backups first.".into());}
+            let store=state.store.lock().map_err(lock_error)?;
+            let mut safety=state.data_safety.lock().map_err(lock_error)?;
+            if safety.recovery_pending{return Err("Restore the missing local database before creating a Drive backup.".into());}
+            safety.capture(&store);
+            if safety.status()["last_capture_succeeded"]!=true{return Err("The local backup could not be confirmed. Check Automatic backups before retrying Drive.".into());}
+            state.drive.retry()
+        },
         "settings_get" => Ok(serde_json::to_value(state.preferences.lock().map_err(lock_error)?.clone()).map_err(|e|e.to_string())?),
         "settings_theme" => {
             let mut saved = state.preferences.lock().map_err(lock_error)?;
@@ -316,17 +345,19 @@ pub fn run() {
             let data_safety={safety.startup(&store);Mutex::new(safety)};
             if let Err(error) = preferences.save(&data_dir) { eprintln!("{error}"); }
             app.manage(AppState {
+                drive: std::sync::Arc::new(cloud_backup::CloudBackup::new(&data_dir)),
                 data_safety,
                 preferences: Mutex::new(preferences),
                 data_dir: data_dir.clone(),
                 store: Mutex::new(store), assistant: Mutex::new(assistant), assistant_status: Mutex::new(status), runtime_shutdown, voice_shutdown, manager_shutdown: AtomicBool::new(false) });
             start_assistant_manager(app.handle().clone());
+            start_drive_manager(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![api])
         .build(tauri::generate_context!())
         .expect("Could not start Inventory Manager. Check the local data directory permissions.")
-        .run(|app, event| { if let tauri::RunEvent::Exit = event { if let Some(state) = app.try_state::<AppState>() { state.manager_shutdown.store(true, Ordering::Release); state.runtime_shutdown.shutdown(); } } });
+        .run(|app, event| { if let tauri::RunEvent::Exit = event { if let Some(state) = app.try_state::<AppState>() { state.manager_shutdown.store(true, Ordering::Release); state.drive.close(); state.runtime_shutdown.shutdown(); } } });
 }
 
 #[cfg(test)]

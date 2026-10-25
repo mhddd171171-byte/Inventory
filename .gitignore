@@ -21,3 +21,6 @@ src-tauri/resources/voice/stt/model.bin
 src-tauri/resources/voice/tts/**/*.onnx
 src-tauri/resources/voice/tts/**/voice.bin
 build-inputs/
+
+# Desktop OAuth configuration is supplied at build time, never customer tokens.
+src-tauri/google-oauth-client.json
