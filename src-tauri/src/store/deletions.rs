@@ -32,6 +32,8 @@ impl Store {
   if kind!="product"{corrections::recalculate(&tx)?;}
   for guard in &guards{tx.execute_batch(guard["sql"].as_str().unwrap()).map_err(db_error)?;}
   validate_database(&tx)?;
+  let balances=query(&tx,"SELECT known_value_baisa FROM product_balances",|r|Ok(json!({"value":r.get::<_,i64>(0)?})))?;sum_field(&balances,"value")?;
+  let amounts=query(&tx,"SELECT revenue_baisa,cost_baisa FROM sales",|r|Ok(json!({"revenue":r.get::<_,Option<i64>>(0)?,"cost":r.get::<_,Option<i64>>(1)?})))?;sum_field(&amounts,"revenue")?;sum_field(&amounts,"cost")?;
   let audit=json!({"kind":kind,"record_id":id,"created_at":now(),"before":before,"recovery_backup":recovery.to_string_lossy()});
   tx.execute("INSERT INTO legacy_archive(kind,record_id,record_json) VALUES('record_delete',?1,?2)",params![Uuid::new_v4().to_string(),audit.to_string()]).map_err(db_error)?;
   tx.commit().map_err(db_error)?;
