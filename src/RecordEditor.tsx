@@ -14,6 +14,12 @@ export function DataIssues({issues}:{issues?:string[]}) {
 function localDate(value:string){const date=new Date(value);if(Number.isNaN(date.getTime()))return '';const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);return local.toISOString().slice(0,19);}
 export default function RecordEditor({target,products,saved,close}:{target:EditTarget;products:Product[];saved:()=>Promise<void>;close:()=>void}) {
  const {kind,record}=target;
+ const [confirmDelete,setConfirmDelete]=useState(false);
+ async function remove(){
+  setBusy(true);setError('');
+  try{const response=await call<{pre_delete_backup:string}>('delete_record',{kind,id:record.id,password,confirmed:true});setPassword('');await saved();setResult(`Record deleted. Recovery backup: ${response.pre_delete_backup}`);setConfirmDelete(false);}
+  catch(e){setError(errorMessage(e));}finally{setBusy(false);}
+ }
  const openEditor=useRecordEditor();
  const [search,setSearch]=useState(''),[switchProduct,setSwitchProduct]=useState<Product|null>(null);
  const matches=search.trim()?products.filter(p=>matchesProduct(p,search)):[];
@@ -35,7 +41,7 @@ export default function RecordEditor({target,products,saved,close}:{target:EditT
  return <Dialog title={kind==='product'?'Edit product':kind==='entry'?'Edit stock entry':'Edit Stock Out'} close={()=>{if(!busy)close();}}><form className="dialog-body" onSubmit={submit}>
   <Notice text={error}/><Notice text={result} kind="success"/>
   <DataIssues issues={record.data_issues}/>
-  <p>A recovery backup is saved before each correction. Stock, buying costs, profit and reports are recalculated together.</p>
+  <p>A recovery backup is saved before each correction or deletion. Stock, buying costs, profit and reports are recalculated together.</p>
   {!result&&<><section className="edit-search" aria-label="Search inventory inside editor">
    <Field label="Search item by code, name or model"><input type="search" maxLength={200} dir="auto" value={search} placeholder="Item Code, Samsung screen, device model…" disabled={busy} onKeyDown={e=>{if(e.key==='Enter')e.preventDefault();}} onChange={e=>{setSearch(e.target.value);setSwitchProduct(null);}}/></Field>
    {search.trim()&&<><p className="help-note" role="status">{matches.length?`${matches.length} matching items${matches.length>8?' — showing the first 8; refine your search':''}`:'No matching item. Try a partial name or model.'}</p><div className="edit-search-results">{matches.slice(0,8).map(p=><button key={p.id} type="button" className="btn edit-search-result" disabled={busy||kind==='product'&&p.id===record.id} onClick={()=>{if(kind==='product')setSwitchProduct(p);else{setCode(p.item_code);setSearch('');}}}><span dir="auto"><strong>{p.item_code} · {p.name}</strong><small>{p.model_description}</small></span><span>{kind==='product'?p.id===record.id?'Currently editing':'Edit this product':'Use this item'}</span></button>)}</div></>}
@@ -53,6 +59,7 @@ export default function RecordEditor({target,products,saved,close}:{target:EditT
   </div>
   {kind==='sale'&&<p className="help-note">CR number and date apply to every line in this Stock Out transaction. Quantity, item and selling price apply to this line.</p>}
   <p className="help-note">Corrections that leave insufficient stock or invalid records will be rejected. Missing prices must be entered as their actual values; zero means the actual price was zero.</p></>}
-  <div className="dialog-actions"><button type="button" className="btn" disabled={busy} onClick={close}>{result?'Close':'Cancel'}</button>{!result&&<button className="btn primary" disabled={busy}>{busy?'Saving…':'Save correction'}</button>}</div>
+  {!result&&confirmDelete&&<div className="notice migration" role="alert"><strong>Delete this saved record?</strong><p>Item Code {record.item_code} · {kind==='product'?record.name:record.product_name}</p><p>{kind==='sale'?'Only this Stock Out line will be deleted. Its quantity returns to stock; other lines in the CR stay.':kind==='entry'?'This purchase batch will be removed. Deletion is rejected if recorded sales would have insufficient stock.':'Only this product will be deleted. Products with stock or sales history must have those records removed first.'} Reports and stock totals will update. Unsaved edits will be discarded. A recovery backup is created first.</p><div className="button-row"><button type="button" className="btn" disabled={busy||!password} onClick={remove}>{busy?'Deleting…':'Confirm delete'}</button><button type="button" className="btn" disabled={busy} onClick={()=>setConfirmDelete(false)}>Keep record</button></div><p>Enter the password above to confirm.</p></div>}
+  <div className="dialog-actions">{!result&&<button type="button" className="btn" disabled={busy} onClick={()=>setConfirmDelete(true)}>Delete record</button>}<button type="button" className="btn" disabled={busy} onClick={close}>{result?'Close':'Cancel'}</button>{!result&&!confirmDelete&&<button className="btn primary" disabled={busy}>{busy?'Saving…':'Save correction'}</button>}</div>
  </form></Dialog>;
 }

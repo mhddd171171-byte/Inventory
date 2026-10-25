@@ -44,6 +44,19 @@ mockIPC(async(command,args)=>{
     for(const line of payload.lines){const p=state.products.find(p=>p.item_code===line.item_code);if(!p||p.quantity<line.quantity)throw new Error('Insufficient stock.');let remaining=line.quantity,cost=0;for(const e of state.entries.filter(e=>e.product_id===p.id)){const take=Math.min(remaining,e.remaining_quantity);e.remaining_quantity-=take;remaining-=take;cost+=take*(e.unit_cost_baisa??0);if(!remaining)break;}const revenue=line.quantity*line.unit_price_baisa;saleLines.push({...line,id:crypto.randomUUID(),sale_id:saleId,product_id:p.id,product_name:p.name,model_description:p.model_description,cr_number:payload.cr_number,cost_baisa:cost,revenue_baisa:revenue,profit_baisa:revenue-cost,created_at:now()});}
     const sale={id:saleId,cr_number:payload.cr_number,created_at:now(),total_quantity:sum(saleLines,'quantity'),revenue_baisa:sum(saleLines,'revenue_baisa'),cost_baisa:sum(saleLines,'cost_baisa'),profit_baisa:sum(saleLines,'profit_baisa')};state.sales.unshift(sale);state.lines.unshift(...saleLines);snapshot();return sale;
   }
+  if(action==='delete_record'){
+    if(payload.password!=='1234')throw new Error('Incorrect edit password. No records were changed.');
+    if(payload.confirmed!==true)throw new Error('Confirm deletion.');
+    if(payload.kind==='product'){
+      if(state.entries.some(e=>e.product_id===payload.id)||state.lines.some(l=>l.product_id===payload.id))throw new Error('This product has stock or sales history.');
+      state.products=state.products.filter(p=>p.id!==payload.id);
+    }else if(payload.kind==='entry'){
+      const e=state.entries.find(e=>e.id===payload.id);if(e.remaining_quantity!==e.quantity)throw new Error('Insufficient stock.');state.entries=state.entries.filter(e=>e.id!==payload.id);
+    }else{
+      const l=state.lines.find(l=>l.id===payload.id);const batch=state.entries.find(e=>e.product_id===l.product_id);batch.remaining_quantity+=l.quantity;state.lines=state.lines.filter(v=>v.id!==l.id);state.sales=state.sales.filter(s=>state.lines.some(l=>l.sale_id===s.id));
+    }
+    snapshot();return {deleted:true,pre_delete_backup:'C:/TestOnly/before-delete.db'};
+  }
   if(action==='edit_record'){
     if(payload.password!=='1234')throw new Error('Incorrect edit password. No records were changed.');
     const c=payload.changes;

@@ -9,6 +9,6 @@ export async function call<T = unknown>(
       "Open Inventory Manager from the desktop application. The local database is available through its native backend.",
     );
   const result=await invoke<T>("api", { action, payload });
-  if(["save_product","stock_entry","stock_out","edit_record","restore"].includes(action)) window.dispatchEvent(new Event("inventory-data-safety"));
+  if(["save_product","stock_entry","stock_out","edit_record","delete_record","restore"].includes(action)) window.dispatchEvent(new Event("inventory-data-safety"));
   return result;
 }
