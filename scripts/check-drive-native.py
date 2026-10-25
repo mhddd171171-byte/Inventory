@@ -26,7 +26,14 @@ keyring = { version = "=3.6.3", features = ["apple-native"] }
 [dev-dependencies]
 tempfile = "3"
 ''',encoding='utf-8')
-source='\n'.join(f'#[path={json.dumps((root/"src-tauri/src"/(name+".rs")).as_posix())}] mod {name};' for name in ['store','data_safety','cloud_backup'])
+modules=['store','data_safety','cloud_backup']
+for name in modules:
+    original=root/'src-tauri/src'/f'{name}.rs'
+    shutil.copy2(original,probe/'src'/original.name)
+    children=root/'src-tauri/src'/name
+    if children.is_dir():shutil.copytree(children,probe/'src'/name,dirs_exist_ok=True)
+shutil.copytree(root/'src-tauri/migrations',probe/'migrations',dirs_exist_ok=True)
+source='\n'.join(f'mod {name};' for name in modules)
 (probe/'src/lib.rs').write_text(source,encoding='utf-8')
 (probe/'build.rs').write_text('fn main(){std::fs::write(std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("google-oauth-client.json"),r#"{"client_id":"","client_secret":""}"#).unwrap();}',encoding='utf-8')
 if not (probe/'Cargo.lock').exists():shutil.copy2(root/'src-tauri/Cargo.lock',probe/'Cargo.lock')
