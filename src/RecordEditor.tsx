@@ -29,7 +29,7 @@ export default function RecordEditor({target,products,saved,close}:{target:EditT
  const [price,setPrice]=useState(originalPrice==null?'':(originalPrice/1000).toFixed(3)),[cr,setCr]=useState(kind==='sale'?record.cr_number??'':'');
  const [date,setDate]=useState(localDate(record.created_at)),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[result,setResult]=useState('');
  async function submit(event:FormEvent){
-  event.preventDefault();setBusy(true);setError('');setResult('');
+  event.preventDefault();if(confirmDelete||busy)return;setBusy(true);setError('');setResult('');
   try{
    const changes:Record<string,unknown>={item_code:numericReference(code)};
    if(kind==='product'){changes.name=name.trim();changes.model_description=model.trim();}
