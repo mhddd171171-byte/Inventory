@@ -97,7 +97,7 @@ impl CloudBackup {
   {let mut s=self.inner.lock().map_err(|_|"Drive settings are unavailable.")?;if !s.config.connected||!s.config.enabled||s.state=="reconnect_required"{return Err("Connect and enable Google Drive backups first.".into());}s.force=true;s.next_attempt=Instant::now();s.attempt=0;s.state="queued".into();s.message="Backup queued for upload.".into();}
   Ok(self.status())
  }
- pub fn open_folder(&self)->Result<Value,String>{let id=self.inner.lock().map_err(|_|"Drive settings are unavailable.")?.config.folder_id.clone().filter(|s|drive::valid_id(s)).ok_or("The Drive folder will be available after your first successful connection and backup.")?;oauth::browser(&format!("https://drive.google.com/drive/folders/{id}"))?;Ok(json!({"opened":true}))}
+ pub fn open_folder(&self)->Result<Value,String>{let url={let s=self.inner.lock().map_err(|_|"Drive settings are unavailable.")?;if !s.config.connected{return Err("Connect Google Drive first.".into());}match s.config.folder_id.as_deref().filter(|s|drive::valid_id(s)){Some(id)=>format!("https://drive.google.com/drive/folders/{id}"),None=>"https://drive.google.com/drive/my-drive".into()}};oauth::browser(&url)?;Ok(json!({"opened":true}))}
  fn valid(&self,generation:u64)->bool{!self.closed.load(Ordering::Acquire)&&self.generation.load(Ordering::Acquire)==generation}
  pub fn close(&self){self.closed.store(true,Ordering::Release);self.generation.fetch_add(1,Ordering::AcqRel);}
  fn pending_path(&self,p:&Pending)->PathBuf{self.directory.join(format!("{}.db",p.id))}
