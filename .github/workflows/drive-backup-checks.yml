@@ -1,0 +1,59 @@
+name: Google Drive backup native checks
+on:
+  push:
+    branches: [codex/drive-backup-macos]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  intel-mac:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.11.0'
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            src-tauri/target/release/deps
+            src-tauri/target/release/build
+            src-tauri/target/release/.fingerprint
+            src-tauri/target/x86_64-apple-darwin/release/deps
+            src-tauri/target/x86_64-apple-darwin/release/build
+            src-tauri/target/x86_64-apple-darwin/release/.fingerprint
+          key: drive-backup-native-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: intel-macos-native-b11554-
+      - name: Interface and offline workflow tests
+        run: |
+          npm ci
+          npm test
+          npm run build
+          npm install --no-save --package-lock=false playwright
+          npx playwright install chromium
+          MAC_UI_TEST=1 UI_BROWSER_CHANNEL=chromium node tests/ui-flow.mjs
+      - name: Native Intel Mac, Keychain and mock Drive tests
+        run: |
+          test "$(uname -m)" = x86_64
+          rustup target add x86_64-apple-darwin
+          mkdir -p .build/macos-resources/{ai,voice,licenses}
+          DRIVE_TEST_KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          echo "::add-mask::$DRIVE_TEST_KEYCHAIN_PASSWORD"
+          security create-keychain -p "$DRIVE_TEST_KEYCHAIN_PASSWORD" "$RUNNER_TEMP/drive-backup-tests.keychain-db"
+          security unlock-keychain -p "$DRIVE_TEST_KEYCHAIN_PASSWORD" "$RUNNER_TEMP/drive-backup-tests.keychain-db"
+          security default-keychain -s "$RUNNER_TEMP/drive-backup-tests.keychain-db"
+          security list-keychains -d user -s "$RUNNER_TEMP/drive-backup-tests.keychain-db" login.keychain-db
+          cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Drive-backup-interface-checks
+          path: |
+            tmp/ui/results-v2.json
+            tmp/ui/google-drive-settings-dark.png
+          include-hidden-files: true
+          retention-days: 14

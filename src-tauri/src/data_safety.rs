@@ -11,6 +11,7 @@ pub struct DataSafety {
     pub recovery_pending: bool,
     pub database_was_missing: bool,
     warning: String,
+    last_capture_succeeded: bool,
     latest: Option<PathBuf>,
     recovery_marker: Option<PathBuf>,
 }
@@ -19,7 +20,7 @@ impl DataSafety {
         let previous = records(&directory);
         let extra_exists = extra.as_ref().is_some_and(|p| !records(p).is_empty());
         Self { recovery_marker:None, directory, extra, recovery_pending: !database_existed && (!previous.is_empty() || extra_exists),
-            database_was_missing: !database_existed, warning: String::new(), latest: previous.first().cloned() }
+            database_was_missing: !database_existed, warning: String::new(), last_capture_succeeded:false, latest: previous.first().cloned() }
     }
     pub fn protect_recovery(&mut self, data_dir:&Path)->Result<(),String> {
         let marker=data_dir.join("recovery-required.flag");
@@ -30,7 +31,7 @@ impl DataSafety {
     pub fn status(&self) -> Value {
         json!({"enabled":true,"version":env!("CARGO_PKG_VERSION"),"database_directory":self.recovery_marker.as_ref().and_then(|p|p.parent()),"directory":self.directory,"additional_directory":self.extra,
             "latest_backup":self.latest,"backup_count":records(&self.directory).len(),
-            "warning":self.warning,"recovery_pending":self.recovery_pending,
+            "warning":self.warning,"last_capture_succeeded":self.last_capture_succeeded,"recovery_pending":self.recovery_pending,
             "database_was_missing":self.database_was_missing})
     }
     pub fn set_extra(&mut self, directory: PathBuf, data_dir: &Path) -> Result<(),String> {
@@ -90,6 +91,7 @@ impl DataSafety {
                 Err(e)=>{if !self.warning.is_empty(){self.warning.push(' ');}self.warning.push_str(&format!("Additional backup unavailable: {e}. Reconnect the drive and choose Back up now."));}
             }
         }
+        self.last_capture_succeeded=successful || self.latest.as_ref().and_then(|p|p.file_name()).is_some_and(|n|n==std::ffi::OsStr::new(&name));
     }
 }
 fn same_records(left:&Path,right:&Path)->bool {
