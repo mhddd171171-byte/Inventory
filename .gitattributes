@@ -8,3 +8,5 @@ voice/catt-tokenizer.json -text
 
 # Preserve exact native evidence bytes across Windows and macOS checkouts.
 tests/fixtures/macos-native-baseline/* -text
+
+tests/fixtures/macos-2.0.9/* -text

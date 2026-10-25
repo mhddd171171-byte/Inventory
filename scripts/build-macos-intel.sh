@@ -63,6 +63,8 @@ INVENTORY_AI_RESOURCE_DIR="$PWD/.build/macos-resources/ai" \
 cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml mac_control_runtime_acceptance -- --ignored --nocapture
 if [[ "${INVENTORY_AI_ACCEPTANCE_REVIEW:-}" == "38598883688" ]]; then
   [[ -f .build/MACOS-AI-ACCEPTANCE.json ]] || python3.12 scripts/review-macos-acceptance.py
+elif [[ "${INVENTORY_AI_ACCEPTANCE_REVIEW:-}" == "40199645952" ]]; then
+  python3.12 scripts/review-ui-only-ai-evidence.py
 else
 cargo test --release --target x86_64-apple-darwin --manifest-path src-tauri/Cargo.toml
 # Test the same profile before packaging, while Cargo's test binary is current.
