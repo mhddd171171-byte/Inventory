@@ -89,7 +89,15 @@ pub(super) fn validate(conn:&Connection)->Result<(),String>{
  "SELECT EXISTS(SELECT 1 FROM damaged_returns r JOIN sale_lines o ON o.id=r.line_id JOIN sales os ON os.id=o.sale_id LEFT JOIN sale_lines l ON l.id=r.replacement_line_id LEFT JOIN sales s ON s.id=l.sale_id LEFT JOIN stock_out_details d ON d.line_id=l.id WHERE os.cr_number IS NULL OR (r.resolution='replacement' AND (l.id IS NULL OR l.quantity!=r.quantity OR s.cr_number IS NOT os.cr_number OR d.purpose IS NOT 'replacement')))",
  "SELECT EXISTS(SELECT 1 FROM stock_out_details d WHERE d.purpose='replacement' AND NOT EXISTS(SELECT 1 FROM damaged_returns r WHERE r.replacement_line_id=d.line_id))"
  ];
- for sql in checks{if invalid(conn,sql)?{return Err("The database contains inconsistent stock purposes or damaged returns.".into());}}Ok(())
+ for sql in checks{if invalid(conn,sql)?{return Err("The database contains inconsistent stock purposes or damaged returns.".into());}}
+ let returns=query(conn,"SELECT refund_baisa,extra_baisa FROM damaged_returns",|r|Ok(json!({"refund":r.get::<_,i64>(0)?,"extra":r.get::<_,i64>(1)?})))?;
+ let headers=query(conn,"SELECT revenue_baisa,cost_baisa FROM sales",|r|Ok(json!({"revenue":r.get::<_,Option<i64>>(0)?,"cost":r.get::<_,Option<i64>>(1)?})))?;
+ checked_add(sum_field(&headers,"revenue")?,sum_field(&returns,"extra")?)?;sum_field(&headers,"cost")?;sum_field(&returns,"refund")?;
+ let mut lines=query(conn,LINE_SELECT,line_row)?;annotate(conn,&mut lines)?;
+ let mut months:HashMap<String,Vec<Value>>=HashMap::new();
+ for line in report_lines(&lines).0{let stamp=line["created_at"].as_str().unwrap_or("");if let Some(month)=stamp.get(..7){months.entry(month.into()).or_default().push(line);}}
+ for rows in months.values(){sum_field(rows,"revenue_baisa")?;sum_field(rows,"cost_baisa")?;sum_field(rows,"profit_baisa")?;}
+ Ok(())
 }
 
 pub(super) fn annotate(conn:&Connection,lines:&mut [Value])->Result<(),String>{
