@@ -2,7 +2,7 @@ name: Offline Intel macOS installer
 
 on:
   push:
-    branches: [macos-intel, codex/stock-dispositions-macos]
+    branches: [macos-intel]
   workflow_dispatch:
 
 permissions:
