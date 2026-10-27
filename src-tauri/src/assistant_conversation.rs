@@ -669,6 +669,9 @@ fn clarify(ctx: &Conversation, ar: bool) -> Value {
     )
 }
 
+fn financial_lines(snapshot:&Value)->Result<Vec<Value>,String>{
+    Ok(crate::store::financial_lines(array(snapshot,"sale_lines")?))
+}
 fn monthly_answer(
     plan: &Plan,
     snapshot: &Value,
@@ -677,7 +680,7 @@ fn monthly_answer(
 ) -> Result<Value, String> {
     let month = resolve_month(plan.month.as_deref(), snapshot)?;
     let mut lines = vec![];
-    for line in array(snapshot, "sale_lines")? {
+    for line in &financial_lines(snapshot)? {
         if text(line, "created_at").starts_with(&month)
             && selected.iter().any(|p| text(p, "id") == line_id(line))
         {
@@ -761,7 +764,7 @@ fn cr_answer(
     }
     ctx.last_cr = Some(cr.clone());
     ctx.pending = None;
-    let lines = array(snapshot, "sale_lines")?
+    let lines = financial_lines(snapshot)?
         .iter()
         .filter(|s| text(s, "cr_number") == cr)
         .cloned()
@@ -899,7 +902,7 @@ fn history_answer(
 }
 fn sales_totals(lines: &[Value]) -> Result<Value, String> {
     Ok(
-        json!({"total_units_sold":sum_known(lines.iter().map(|l|l.get("quantity")))?,"total_revenue_baisa":sum_known(lines.iter().map(|l|l.get("revenue_baisa")))?,"total_cost_baisa":sum_known(lines.iter().map(|l|l.get("cost_baisa")))?,"total_profit_baisa":sum_known(lines.iter().map(|l|l.get("profit_baisa")))?}),
+        json!({"total_units_sold":sum_known(lines.iter().filter(|l|text(l,"purpose").is_empty()||text(l,"purpose")=="sale").map(|l|l.get("quantity")))?,"total_revenue_baisa":sum_known(lines.iter().map(|l|l.get("revenue_baisa")))?,"total_cost_baisa":sum_known(lines.iter().map(|l|l.get("cost_baisa")))?,"total_profit_baisa":sum_known(lines.iter().map(|l|l.get("profit_baisa")))?}),
     )
 }
 fn resolve_month(value: Option<&str>, snapshot: &Value) -> Result<String, String> {

@@ -1,3 +1,4 @@
+import { financialLines } from '../src/movements';
 // Test-only IPC fixture; never imported by the production entry point.
 import { mockIPC } from '@tauri-apps/api/mocks';
 import type { Product, Snapshot, StockEntry, Sale, SaleLine } from '../src/types';
@@ -12,8 +13,8 @@ const now=()=>new Date().toISOString();
 const sum=(rows:any[],key:string)=>rows.reduce((n,r)=>n+(r[key]??0),0);
 function snapshot(month=currentMonth()):Snapshot {
   for(const p of state.products){const entries=state.entries.filter(e=>e.product_id===p.id);p.quantity=sum(entries,'remaining_quantity');p.inventory_value_baisa=entries.reduce((n,e)=>n+e.remaining_quantity*(e.unit_cost_baisa??0),0);p.stock_status=p.quantity===0?'out':p.quantity===1?'critical':p.quantity===2?'low':'normal';}
-  const monthly=state.lines.filter(l=>l.created_at.startsWith(month));
-  return structuredClone({month,products:state.products,entries:state.entries,sales:state.sales,sale_lines:state.lines,monthly_sales_lines:monthly,monthly_summary:state.products.map(p=>{const lines=monthly.filter(l=>l.product_id===p.id);return {product_id:p.id,item_code:p.item_code,product_name:p.name,quantity_sold:sum(lines,'quantity'),quantity_remaining:p.quantity,cost_baisa:sum(lines,'cost_baisa'),revenue_baisa:sum(lines,'revenue_baisa'),profit_baisa:sum(lines,'profit_baisa')};}),low_stock:state.products.filter(p=>p.quantity<=2),summary:{total_products:state.products.length,total_units:sum(state.products,'quantity'),inventory_value_baisa:sum(state.products,'inventory_value_baisa'),known_inventory_value_baisa:sum(state.products,'inventory_value_baisa'),unknown_cost_units:0,monthly_units_sold:sum(monthly,'quantity'),monthly_sales_baisa:sum(monthly,'revenue_baisa'),known_monthly_sales_baisa:sum(monthly,'revenue_baisa'),monthly_cost_baisa:sum(monthly,'cost_baisa'),monthly_profit_baisa:sum(monthly,'profit_baisa'),unknown_sales_lines:0}});
+  const monthly=financialLines(state.lines).filter(l=>l.created_at.startsWith(month));
+  return structuredClone({month,products:state.products,entries:state.entries,sales:state.sales,sale_lines:state.lines,monthly_sales_lines:monthly,monthly_summary:state.products.map(p=>{const lines=monthly.filter(l=>l.product_id===p.id);return {product_id:p.id,item_code:p.item_code,product_name:p.name,quantity_sold:sum(lines,'quantity'),quantity_remaining:p.quantity,cost_baisa:sum(lines,'cost_baisa'),revenue_baisa:sum(lines,'revenue_baisa'),profit_baisa:sum(lines,'profit_baisa')};}),low_stock:state.products.filter(p=>p.quantity<=2),summary:{total_products:state.products.length,total_units:sum(state.products,'quantity'),inventory_value_baisa:sum(state.products,'inventory_value_baisa'),known_inventory_value_baisa:sum(state.products,'inventory_value_baisa'),unknown_cost_units:0,monthly_units_sold:sum(monthly.filter(l=>(l.purpose??'sale')==='sale'),'quantity'),monthly_sales_baisa:sum(monthly,'revenue_baisa'),known_monthly_sales_baisa:sum(monthly,'revenue_baisa'),monthly_cost_baisa:sum(monthly,'cost_baisa'),monthly_profit_baisa:sum(monthly,'profit_baisa'),unknown_sales_lines:0}});
 }
 let cancelListen:(value:any)=>void=()=>{};
 mockIPC(async(command,args)=>{
@@ -43,6 +44,16 @@ mockIPC(async(command,args)=>{
     const saleId=crypto.randomUUID(),saleLines:SaleLine[]=[];
     for(const line of payload.lines){const p=state.products.find(p=>p.item_code===line.item_code);if(!p||p.quantity<line.quantity)throw new Error('Insufficient stock.');let remaining=line.quantity,cost=0;for(const e of state.entries.filter(e=>e.product_id===p.id)){const take=Math.min(remaining,e.remaining_quantity);e.remaining_quantity-=take;remaining-=take;cost+=take*(e.unit_cost_baisa??0);if(!remaining)break;}const revenue=line.quantity*line.unit_price_baisa;saleLines.push({...line,id:crypto.randomUUID(),sale_id:saleId,product_id:p.id,product_name:p.name,model_description:p.model_description,cr_number:payload.cr_number,cost_baisa:cost,revenue_baisa:revenue,profit_baisa:revenue-cost,created_at:now()});}
     const sale={id:saleId,cr_number:payload.cr_number,created_at:now(),total_quantity:sum(saleLines,'quantity'),revenue_baisa:sum(saleLines,'revenue_baisa'),cost_baisa:sum(saleLines,'cost_baisa'),profit_baisa:sum(saleLines,'profit_baisa')};state.sales.unshift(sale);state.lines.unshift(...saleLines);snapshot();return sale;
+  }
+  if(action==='damaged_return'){
+    if(payload.password!=='1234')throw new Error('Incorrect edit password. No records were changed.');
+    const l=state.lines.find(l=>l.id===payload.line_id)!;
+    const old=payload.return_id?l.returns?.find(r=>r.id===payload.return_id):undefined;
+    if(old&&old.resolution!=='pending')throw new Error('Return already resolved.');
+    if(!old&&payload.quantity>l.quantity-(l.returned_quantity??0))throw new Error('Returned quantity exceeds available units.');
+    const r={id:old?.id??crypto.randomUUID(),line_id:l.id,quantity:payload.quantity,resolution:payload.resolution,refund_baisa:payload.refund_baisa,extra_baisa:payload.extra_baisa,replacement_line_id:null,note:payload.note,created_at:old?.created_at??now(),resolved_at:payload.resolution==='pending'?null:now()};
+    if(old)Object.assign(old,r);else{l.returns??=[];l.returns.push(r);l.returned_quantity=(l.returned_quantity??0)+payload.quantity;}
+    snapshot();return {saved:true,id:r.id,pre_edit_backup:'C:/TestOnly/before-return.db'};
   }
   if(action==='delete_record'){
     if(payload.password!=='1234')throw new Error('Incorrect edit password. No records were changed.');

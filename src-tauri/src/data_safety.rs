@@ -97,7 +97,7 @@ fn same_records(left:&Path,right:&Path)->bool {
         let db=rusqlite::Connection::open_with_flags(path,rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         db.pragma_update(None,"trusted_schema","OFF")?;
         let mut tables=Vec::new();
-        for table in ["products","stock_entries","sales","sale_lines","fifo_allocations","legacy_archive","migration_info"] {
+        for table in ["products","stock_entries","sales","sale_lines","fifo_allocations","legacy_archive","migration_info","stock_out_details","damaged_returns"] {
             let mut stmt=db.prepare(&format!("SELECT * FROM {table} ORDER BY rowid"))?;
             let rows=stmt.query_map([],|row|(0..row.as_ref().column_count()).map(|i|row.get(i)).collect::<rusqlite::Result<Vec<rusqlite::types::Value>>>())?.collect::<rusqlite::Result<Vec<_>>>()?;
             tables.push(rows);

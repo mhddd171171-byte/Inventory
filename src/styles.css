@@ -1362,3 +1362,28 @@ html[data-theme="dark"] .sale-line { background: #26372c; border-color: #46554b;
 html[data-theme="dark"] :is(.sale-line-heading strong,.sale-product strong,.stockout-picker strong) { color: #eef5ee; }
 html[data-theme="dark"] :is(.sale-product small,.stockout-picker small,.stockout-picker .help-note) { color: #b5c5ba; }
 html[data-theme="dark"] :is(.stockout-picker,.sale-total) { border-color: #46554b; }
+
+/* Non-sale movements and return settlement windows. */
+.quantity-purpose { align-self:start; min-width:0; }
+.purpose-checks { display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:4px; }
+.purpose-checks label { display:flex; align-items:center; gap:7px; font-size:12px; min-height:32px; }
+.purpose-checks input { width:16px; height:16px; padding:0; accent-color:#527351; }
+.sale-line-fields { align-items:start; }
+.return-original { padding:14px; border:1px solid #dce2d9; border-radius:8px; background:#f5f7f2; margin:12px 0; }
+.return-original p { margin:5px 0; font-size:12px; }
+.return-history { margin:12px 0 20px; }
+.return-history > .btn { margin-top:12px; }
+.movement-label { font-weight:600; }
+/* Paint header cells themselves: their light fill previously hid dark thead. */
+html[data-theme="dark"] :is(thead,th,.order-row,.segmented,.segmented button.selected,.return-original,.edit-search,.chat-welcome-icon) { background:#26372c; color:#e2ebe5; border-color:#46554b; }
+html[data-theme="dark"] :is(.quick-strip,.filters,.report-option.chosen,.order-icon,.chat-message.user>div,.tiny-pill) { background:#2b4032; color:#e2ebe5; border-color:#46554b; }
+html[data-theme="dark"] :is(.chat-message>div,.chat-details summary,.ai-advanced summary,.ai-service-note span,.voice-phase,.order-row strong,.order-row small,.report-option strong,.report-option small,.selected-name,.empty p,.empty h3,.stat-card>div,.movement-label,.purpose-checks label) { color:#d1e0d4; }
+html[data-theme="dark"] .notice.success { background:#284832; color:#dcf2df; border-color:#54795e; }
+html[data-theme="dark"] .notice.migration { background:#393724; color:#f4e3ac; border-color:#74673e; }
+html[data-theme="dark"] :is(.tag.stock-0,.tag.out) { background:#492c29; color:#ffd4cd; }
+html[data-theme="dark"] .tag.stock-1 { background:#493821; color:#ffe1b1; }
+html[data-theme="dark"] .tag.stock-2 { background:#3d3a22; color:#f2e5b3; }
+html[data-theme="dark"] .tag.stock-normal { background:#284832; color:#dcf2df; }
+html[data-theme="dark"] :is(input,textarea)::placeholder { color:#a9bdae; opacity:1; }
+html[data-theme="dark"] :is(input,select,textarea):disabled { color:#a9bdae; background:#26312a; opacity:.75; }
+html[data-theme="dark"] :is(.return-history,.return-original,.edit-search,.report-option,.segmented,.order-row,.quick-strip,.preference-section) { border-color:#46554b; }

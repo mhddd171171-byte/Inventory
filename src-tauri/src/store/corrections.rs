@@ -27,13 +27,18 @@ impl Store {
   let description=if kind=="product"{Some(required_text(changes,"model_description",2000)?)}else{None};
   let quantity=if kind!="product"{Some(integer(changes,"quantity",1,MAX_QUANTITY)?)}else{None};
   let cost=if kind=="entry"{Some(integer(changes,"unit_cost_baisa",0,MAX_PRICE)?)}else{None};
-  let price=if kind=="sale"{Some(integer(changes,"unit_price_baisa",0,MAX_PRICE)?)}else{None};
-  let cr=if kind=="sale"{Some(numeric_reference(changes,"cr_number")?)}else{None};
+  let non_sale=kind=="sale"&&self.conn.query_row("SELECT purpose IN ('personal','damage') FROM stock_out_details WHERE line_id=?1",[&id],|r|r.get::<_,bool>(0)).optional().map_err(db_error)?.unwrap_or(false);
+  let price=if kind=="sale"{Some(if non_sale{if changes["unit_price_baisa"].as_i64()!=Some(0){return Err("Non-sale lines cannot have a selling price.".into());}0}else{integer(changes,"unit_price_baisa",0,MAX_PRICE)?})}else{None};
+  let cr=if kind=="sale"&&!non_sale{Some(numeric_reference(changes,"cr_number")?)}else{None};
   let timestamp=if kind!="product"{Some(date(changes)?)}else{None};
   let before=if kind=="sale"{
    let sql=LINE_SELECT.replace(" ORDER BY s.created_at DESC,s.rowid DESC,l.rowid"," WHERE l.id=?1");
    self.conn.query_row(&sql,[&id],line_row).map_err(|_|"Stock Out record not found.".to_string())?
   }else{before};
+  if kind=="sale"{
+   let blocked:i64=self.conn.query_row("SELECT (SELECT COUNT(*) FROM damaged_returns r JOIN sale_lines l ON l.id=r.line_id WHERE l.sale_id=?1 OR r.replacement_line_id=?2)+(SELECT COUNT(*) FROM stock_out_details WHERE line_id=?2 AND purpose='replacement')",params![before["sale_id"].as_str(),id],|r|r.get(0)).map_err(db_error)?;
+   if blocked>0{return Err("This Stock Out has a non-sale purpose or return history. Its original record is protected; use the damaged return controls to resolve a pending return.".into());}
+  }
   let recovery=self.path.with_file_name(format!("before-edit-{}-{}.db",Utc::now().format("%Y%m%d-%H%M%S"),Uuid::new_v4().simple()));
   self.backup(&recovery)?;
   let tx=self.conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db_error)?;
@@ -54,7 +59,7 @@ impl Store {
     let product:(String,String,String)=tx.query_row("SELECT id,name,model_description FROM products WHERE item_code=?1",[&code],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(|_|"No product exists with that Item Code.".to_string())?;
     let qty=quantity.unwrap();let revenue=qty*price.unwrap();
     tx.execute("UPDATE sale_lines SET product_id=?2,item_code=?3,product_name=?4,model_description=?5,quantity=?6,unit_price_baisa=?7,revenue_baisa=?8,profit_baisa=?8-cost_baisa WHERE id=?1",params![id,product.0,code,product.1,product.2,qty,price,revenue]).map_err(db_error)?;
-    tx.execute("UPDATE sales SET cr_number=?2,created_at=?3 WHERE id=?1",params![before["sale_id"].as_str(),cr,timestamp]).map_err(db_error)?;
+    if non_sale{tx.execute("UPDATE sales SET created_at=?2 WHERE id=?1",params![before["sale_id"].as_str(),timestamp]).map_err(db_error)?;}else{tx.execute("UPDATE sales SET cr_number=?2,created_at=?3 WHERE id=?1",params![before["sale_id"].as_str(),cr,timestamp]).map_err(db_error)?;}
    },_=>unreachable!()
   }
   // Purchase corrections can affect later sales. Rebuild allocations in the

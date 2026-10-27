@@ -94,6 +94,10 @@ try:
     auto_folder=Path.home()/"Inventory Manager Backups"
     copies=list(auto_folder.glob("inventory-auto-*.db"))
     assert copies and any(business_records(p)==expected for p in copies)
+    with sqlite3.connect(f"file:{data_dir/'inventory.db'}?mode=ro",uri=True) as upgraded:
+        assert upgraded.execute("PRAGMA user_version").fetchone()[0]==3
+    assert list(data_dir.glob('before-stock-dispositions-*.db'))
+    report["v2_database_upgraded_with_recovery_backup"]=True
     report["existing_inventory_preserved_on_update"]=True
     report["windows_crlf_database_opened_on_installed_mac"]=True
     report["automatic_backup_outside_application_matches_inventory"]=True

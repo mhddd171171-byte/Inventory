@@ -37,10 +37,10 @@ release = api("releases", {"tag_name": tag, "target_commitish": os.environ["GITH
     "name": f"Inventory Manager {version} — Intel macOS offline installer",
     "draft": True, "prerelease": False,
     "body": f"Intel macOS 13+ build with bundled offline AI and bilingual voice. {signing}.\n\n"
-      "Version 2.0.10 adds per-line Stock Out search by partial name, model, Arabic or Item Code, selection that fills Item Code, and readable dark-theme panels. Delete record inside Edit from 2.0.9 remains included. "
-      "Use password 1234 to authorize an edit. Invalid corrections are rejected without changing business records. Database restore replaces records rather than merging. "
-      "All AI and voice resources remain bundled. Persistent AI off/on, themes, timeout/retry behavior and automatic backups are retained. "
-      "Native backend tests, browser interface workflows, mounted DMG and installed launch checks are required by this build. The unchanged AI/voice/database source is strictly checked against 2.0.9; its 68 verified native conversation answers are reused as historical evidence, not reported as a fresh inference run. "
+      "Version 2.0.11 adds per-line Personal use and Damage Stock Out, password-protected damaged customer returns with refunds, replacements and pending resolution, and dark-theme contrast fixes across the workspace. Original sales and CR references are preserved; defective returns do not re-enter sellable stock. "
+      "All AI/voice resources and local automatic backups remain bundled. No Google Drive integration or online backup is included. "
+      "Databases are upgraded with a recovery backup. Earlier v1/v2 backups can be imported; the new v3 database needs this version on both Windows and Mac. "
+      "Native backend and browser tests, a fresh local AI conversation evaluation, speech synthesis, mounted DMG and installed launch checks are performed by this build. "
       "The customer's physical hardware and microphone/speaker quality remain untested.\n\n"
       "Actions artifacts contain small verification reports; installer files are published as Release assets. "
       "Installers larger than GitHub's 2 GiB release-asset limit are preserved as numbered parts plus INSTALLER-PARTS.json. "

@@ -2,7 +2,7 @@ name: Offline Intel macOS installer
 
 on:
   push:
-    branches: [macos-intel]
+    branches: [macos-intel, codex/stock-dispositions-macos]
   workflow_dispatch:
 
 permissions:
@@ -101,7 +101,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           INVENTORY_PRECHECKED: 'true'
-          INVENTORY_AI_ACCEPTANCE_REVIEW: '40199645952'
         run: bash scripts/build-macos-intel.sh
       - name: Verify packaged Intel resources and offline helpers
         run: python3.12 scripts/verify-macos-package.py
