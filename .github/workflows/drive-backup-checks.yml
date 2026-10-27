@@ -1,7 +1,5 @@
 name: Google Drive backup native checks
 on:
-  push:
-    branches: [codex/drive-backup-macos]
   workflow_dispatch:
 permissions:
   contents: read
