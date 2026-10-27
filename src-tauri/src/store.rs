@@ -1,5 +1,7 @@
 //! Single-user SQLite persistence with an immutable FIFO ledger and validated domain operations.
 mod corrections;
+mod dispositions;
+#[cfg(test)] mod disposition_tests;
 mod deletions;
 #[cfg(test)] mod correction_tests;
 mod quality;
@@ -8,7 +10,8 @@ use rusqlite::{backup::Backup, params, Connection, OpenFlags, OptionalExtension,
 use serde_json::{json, Value};
 use std::{collections::{HashMap, HashSet}, fs, path::{Path, PathBuf}, time::Duration};
 use uuid::Uuid;
-const SCHEMA:&str=include_str!("../migrations/002_single_user.sql");
+const SCHEMA_V2:&str=include_str!("../migrations/002_single_user.sql");
+const SCHEMA:&str=include_str!("../migrations/003_dispositions.sql");
 const LEGACY_SCHEMA:&str=include_str!("../migrations/001_initial.sql");
 const APPLICATION_ID:i64=1_230_392_653;
 const MAX_QUANTITY:i64=1_000_000;
@@ -22,26 +25,28 @@ impl Store {
   match version(&conn)?{
    0=>{let objects:i64=conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'",[],|r|r.get(0)).map_err(db_error)?;if objects!=0{return Err("This file is not an Inventory Manager database.".into());}let tx=conn.transaction().map_err(db_error)?;tx.execute_batch(SCHEMA).map_err(db_error)?;tx.commit().map_err(db_error)?;},
    1=>{validate_legacy(&conn)?;let backup=path.with_file_name(format!("before-single-user-{}-{}.db",Utc::now().format("%Y%m%d-%H%M%S"),Uuid::new_v4().simple()));copy_database(&conn,&backup)?;migrate_legacy(&mut conn,&backup)?;},
-   2=>{},v=>return Err(format!("Database version {v} is unsupported. Keep your data and use a compatible application version."))
+   2=>{validate_database(&conn)?;let backup=path.with_file_name(format!("before-stock-dispositions-{}.db",Uuid::new_v4().simple()));copy_database(&conn,&backup)?;dispositions::migrate_v2(&mut conn)?;},3=>{},v=>return Err(format!("Database version {v} is unsupported. Keep your data and use a compatible application version."))
   }
   validate_database(&conn)?;Ok(Self{conn,path:path.to_path_buf()})
  }
  pub fn execute(&mut self,action:&str,payload:Value)->Result<Value,String>{
   if !payload.is_object(){return Err("Request payload must be an object.".into());}
-  match action{"status"=>Ok(json!({"ready":true,"schema_version":2})),"snapshot"=>self.snapshot(&payload),"save_product"=>{if payload["product"]["id"].as_str().is_some_and(|id|!id.is_empty()){let result=self.edit_record(&json!({"kind":"product","id":payload["product"]["id"],"password":payload["password"],"changes":payload["product"]}))?;let mut product=self.product(payload["product"]["id"].as_str().unwrap())?;product["pre_edit_backup"]=result["pre_edit_backup"].clone();Ok(product)}else{self.save_product(&payload)}},"edit_record"=>self.edit_record(&payload),"delete_record"=>self.delete_record(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),_=>Err("Unknown application action.".into())}
+  match action{"status"=>Ok(json!({"ready":true,"schema_version":3})),"snapshot"=>self.snapshot(&payload),"save_product"=>{if payload["product"]["id"].as_str().is_some_and(|id|!id.is_empty()){let result=self.edit_record(&json!({"kind":"product","id":payload["product"]["id"],"password":payload["password"],"changes":payload["product"]}))?;let mut product=self.product(payload["product"]["id"].as_str().unwrap())?;product["pre_edit_backup"]=result["pre_edit_backup"].clone();Ok(product)}else{self.save_product(&payload)}},"edit_record"=>self.edit_record(&payload),"delete_record"=>self.delete_record(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),"damaged_return"=>self.damaged_return(&payload),_=>Err("Unknown application action.".into())}
  }
  /// Read-only business snapshot; a read transaction prevents mixed report/dashboard states.
  pub fn snapshot(&self,payload:&Value)->Result<Value,String>{
   let month=reporting_month(payload)?;let tx=self.conn.unchecked_transaction().map_err(db_error)?;
-  let mut products=query(&tx,PRODUCT_SELECT,product_row)?;let mut entries=query(&tx,ENTRY_SELECT,entry_row)?;let mut lines=query(&tx,LINE_SELECT,line_row)?;let data_quality=quality::annotate(&tx,&mut products,&mut entries,&mut lines)?;
+  let mut products=query(&tx,PRODUCT_SELECT,product_row)?;let mut entries=query(&tx,ENTRY_SELECT,entry_row)?;let mut lines=query(&tx,LINE_SELECT,line_row)?;dispositions::annotate(&tx,&mut lines)?;let data_quality=quality::annotate(&tx,&mut products,&mut entries,&mut lines)?;
   let sales=query(&tx,"SELECT s.id,s.cr_number,s.created_at,s.revenue_baisa,s.cost_baisa,s.profit_baisa,s.legacy,s.legacy_reference,COALESCE(SUM(l.quantity),0) FROM sales s LEFT JOIN sale_lines l ON l.sale_id=s.id GROUP BY s.id ORDER BY s.created_at DESC,s.rowid DESC",|r|Ok(json!({"id":r.get::<_,String>(0)?,"cr_number":r.get::<_,Option<String>>(1)?,"created_at":r.get::<_,String>(2)?,"revenue_baisa":r.get::<_,Option<i64>>(3)?,"cost_baisa":r.get::<_,Option<i64>>(4)?,"profit_baisa":r.get::<_,Option<i64>>(5)?,"legacy":r.get::<_,bool>(6)?,"legacy_reference":r.get::<_,String>(7)?,"total_quantity":r.get::<_,i64>(8)?})))?;
-  let monthly:Vec<Value>=lines.iter().filter(|l|l["created_at"].as_str().is_some_and(|date|date.starts_with(&month))).cloned().collect();
+  let (report_lines,other_lines)=dispositions::report_lines(&lines);
+  let monthly_other:Vec<Value>=other_lines.into_iter().filter(|l|l["created_at"].as_str().is_some_and(|d|d.starts_with(&month))).collect();
+  let monthly:Vec<Value>=report_lines.iter().filter(|l|l["created_at"].as_str().is_some_and(|date|date.starts_with(&month))).cloned().collect();
   let unknown=sum_field(&products,"unknown_cost_units")?;let known=sum_field(&products,"known_inventory_value_baisa")?;
-  let summary=json!({"total_products":products.len(),"total_units":sum_field(&products,"quantity")?,"inventory_value_baisa":if unknown>0{None}else{Some(known)},"known_inventory_value_baisa":known,"unknown_cost_units":unknown,"monthly_units_sold":sum_field(&monthly,"quantity")?,"monthly_sales_baisa":nullable_sum(&monthly,"revenue_baisa")?,"known_monthly_sales_baisa":sum_field(&monthly,"revenue_baisa")?,"monthly_cost_baisa":nullable_sum(&monthly,"cost_baisa")?,"monthly_profit_baisa":nullable_sum(&monthly,"profit_baisa")?,"unknown_sales_lines":monthly.iter().filter(|l|l["cost_baisa"].is_null()||l["revenue_baisa"].is_null()).count()});
+  let summary=json!({"total_products":products.len(),"total_units":sum_field(&products,"quantity")?,"inventory_value_baisa":if unknown>0{None}else{Some(known)},"known_inventory_value_baisa":known,"unknown_cost_units":unknown,"monthly_units_sold":sum_field(&monthly.iter().filter(|l|l["purpose"].as_str().unwrap_or("sale")=="sale").cloned().collect::<Vec<_>>(),"quantity")?,"monthly_sales_baisa":nullable_sum(&monthly,"revenue_baisa")?,"known_monthly_sales_baisa":sum_field(&monthly,"revenue_baisa")?,"monthly_cost_baisa":nullable_sum(&monthly,"cost_baisa")?,"monthly_profit_baisa":nullable_sum(&monthly,"profit_baisa")?,"monthly_personal_cost_baisa":nullable_sum(&monthly_other.iter().filter(|l|l["purpose"]=="personal").cloned().collect::<Vec<_>>(),"cost_baisa")?,"monthly_damage_cost_baisa":nullable_sum(&monthly_other.iter().filter(|l|l["purpose"]=="damage").cloned().collect::<Vec<_>>(),"cost_baisa")?,"unknown_sales_lines":monthly.iter().filter(|l|l["cost_baisa"].is_null()||l["revenue_baisa"].is_null()).count()});
   let low_stock:Vec<Value>=products.iter().filter(|p|p["quantity"].as_i64().unwrap_or(0)<=2).cloned().collect();
-  let monthly_summary:Vec<Value>=products.iter().map(|p|{let sold:Vec<Value>=monthly.iter().filter(|l|l["product_id"]==p["id"]).cloned().collect();Ok(json!({"product_id":p["id"],"item_code":p["item_code"],"product_name":p["name"],"quantity_sold":sum_field(&sold,"quantity")?,"quantity_remaining":p["quantity"],"cost_baisa":nullable_sum(&sold,"cost_baisa")?,"revenue_baisa":nullable_sum(&sold,"revenue_baisa")?,"profit_baisa":nullable_sum(&sold,"profit_baisa")?}))}).collect::<Result<_,String>>()?;
+  let monthly_summary:Vec<Value>=products.iter().map(|p|{let sold:Vec<Value>=monthly.iter().filter(|l|l["product_id"]==p["id"]).cloned().collect();Ok(json!({"product_id":p["id"],"item_code":p["item_code"],"product_name":p["name"],"quantity_sold":sum_field(&sold.iter().filter(|l|l["purpose"].as_str().unwrap_or("sale")=="sale").cloned().collect::<Vec<_>>(),"quantity")?,"quantity_remaining":p["quantity"],"cost_baisa":nullable_sum(&sold,"cost_baisa")?,"revenue_baisa":nullable_sum(&sold,"revenue_baisa")?,"profit_baisa":nullable_sum(&sold,"profit_baisa")?}))}).collect::<Result<_,String>>()?;
   let migration:Option<String>=tx.query_row("SELECT value FROM migration_info WHERE key='summary'",[],|r|r.get(0)).optional().map_err(db_error)?;tx.commit().map_err(db_error)?;
-  Ok(json!({"data_quality":data_quality,"month":month,"products":products,"entries":entries,"sales":sales,"sale_lines":lines,"monthly_sales_lines":monthly,"monthly_summary":monthly_summary,"summary":summary,"low_stock":low_stock,"migration":migration.and_then(|v|serde_json::from_str::<Value>(&v).ok()).unwrap_or(json!({"legacy_products":0,"code_changes":[],"message":""}))}))
+  Ok(json!({"data_quality":data_quality,"month":month,"products":products,"entries":entries,"sales":sales,"sale_lines":lines,"monthly_sales_lines":monthly,"monthly_other_lines":monthly_other,"monthly_summary":monthly_summary,"summary":summary,"low_stock":low_stock,"migration":migration.and_then(|v|serde_json::from_str::<Value>(&v).ok()).unwrap_or(json!({"legacy_products":0,"code_changes":[],"message":""}))}))
  }
  fn product(&self,id:&str)->Result<Value,String>{self.conn.query_row(&format!("{PRODUCT_SELECT} WHERE p.id=?1"),[id],product_row).map_err(db_error)}
  fn save_product(&mut self,payload:&Value)->Result<Value,String>{
@@ -60,32 +65,13 @@ impl Store {
   let entry=Uuid::new_v4().to_string();let time=now();tx.execute("INSERT INTO stock_entries(id,product_id,quantity,unit_cost_baisa,created_at) VALUES(?1,?2,?3,?4,?5)",params![entry,id,quantity,cost,time]).map_err(db_error)?;tx.execute("UPDATE products SET updated_at=?2 WHERE id=?1",params![id,time]).map_err(db_error)?;tx.commit().map_err(db_error)?;
   self.conn.query_row(&format!("{ENTRY_SELECT} WHERE e.id=?1"),[entry],entry_row).map_err(db_error)
  }
- fn stock_out(&mut self,payload:&Value)->Result<Value,String>{
-  let cr=numeric_reference(payload,"cr_number")?;let lines=payload.get("lines").and_then(Value::as_array).filter(|l|!l.is_empty()&&l.len()<=100).ok_or("Add between 1 and 100 product lines.")?;
-  let mut requested=Vec::new();let mut unique=HashSet::new();
-  for line in lines{let code=numeric_reference(line,"item_code")?;if !unique.insert(code.clone()){return Err("Each product may appear once per Stock Out; combine its quantity into one line.".into());}requested.push((code,integer(line,"quantity",1,MAX_QUANTITY)?,integer(line,"unit_price_baisa",0,MAX_PRICE)?));}
-  let tx=self.conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db_error)?;let mut planned=Vec::new();let mut total_revenue=0;let mut total_cost=Some(0);
-  // Calculate every line before appending any records. The immediate transaction
-  // serializes concurrent writes, so both processes cannot spend the same stock.
-  for (code,quantity,price) in requested{
-   let product:Option<(String,String,String)>=tx.query_row("SELECT id,name,model_description FROM products WHERE item_code=?1",[&code],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional().map_err(db_error)?;
-   let(id,name,description)=product.ok_or_else(||format!("No product exists with Item Code {code}."))?;let allocations=allocate_fifo(&tx,&id,quantity)?;let cost=allocation_cost(&allocations)?;let revenue=quantity*price;total_revenue=checked_add(total_revenue,revenue)?;total_cost=match(total_cost,cost){(Some(a),Some(b))=>Some(checked_add(a,b)?),_=>None};planned.push((id,code,name,description,quantity,price,revenue,cost,allocations));
-  }
-  let old_revenue:i64=tx.query_row("SELECT COALESCE(SUM(revenue_baisa),0) FROM sales",[],|r|r.get(0)).map_err(db_error)?;checked_add(old_revenue,total_revenue)?;
-  let sale=Uuid::new_v4().to_string();let time=now();let profit=total_cost.map(|c|total_revenue-c);tx.execute("INSERT INTO sales(id,cr_number,created_at,revenue_baisa,cost_baisa,profit_baisa) VALUES(?1,?2,?3,?4,?5,?6)",params![sale,cr,time,total_revenue,total_cost,profit]).map_err(db_error)?;
-  for(id,code,name,description,quantity,price,revenue,cost,allocations)in planned{
-   let line=Uuid::new_v4().to_string();tx.execute("INSERT INTO sale_lines(id,sale_id,product_id,item_code,product_name,model_description,quantity,unit_price_baisa,revenue_baisa,cost_baisa,profit_baisa) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",params![line,sale,id,code,name,description,quantity,price,revenue,cost,cost.map(|c|revenue-c)]).map_err(db_error)?;
-   for a in allocations{tx.execute("INSERT INTO fifo_allocations(line_id,entry_id,quantity) VALUES(?1,?2,?3)",params![line,a.0,a.1]).map_err(db_error)?;}tx.execute("UPDATE products SET updated_at=?2 WHERE id=?1",params![id,time]).map_err(db_error)?;
-  }
-  tx.commit().map_err(db_error)?;Ok(json!({"id":sale,"cr_number":cr,"created_at":time,"revenue_baisa":total_revenue,"cost_baisa":total_cost,"profit_baisa":profit}))
- }
  pub fn backup(&self,destination:&Path)->Result<Value,String>{reject_same_path(&self.path,destination)?;validate_database(&self.conn)?;copy_database(&self.conn,destination)?;Ok(json!({"path":destination.to_string_lossy()}))}
  pub fn restore(&mut self,source:&Path)->Result<Value,String>{
   reject_same_path(&self.path,source)?;let incoming=Connection::open_with_flags(source,OpenFlags::SQLITE_OPEN_READ_ONLY|OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(|e|format!("Cannot open the backup: {e}"))?;incoming.busy_timeout(Duration::from_secs(5)).map_err(db_error)?;incoming.pragma_update(None,"trusted_schema","OFF").map_err(db_error)?;incoming.execute_batch("BEGIN;").map_err(db_error)?;
   let staging=self.path.with_file_name(format!("restore-validated-{}.db",Uuid::new_v4().simple()));
-  let result=(||{match version(&incoming)?{1=>validate_legacy(&incoming)?,2=>validate_database(&incoming)?,_=>return Err("The backup has an unsupported schema version.".into())}
+  let result=(||{match version(&incoming)?{1=>validate_legacy(&incoming)?,2|3=>validate_database(&incoming)?,_=>return Err("The backup has an unsupported schema version.".into())}
    // Migrate a private copy before touching live data. A failed migration is harmless.
-   copy_database(&incoming,&staging)?;let mut staged=Connection::open(&staging).map_err(db_error)?;staged.pragma_update(None,"foreign_keys","ON").map_err(db_error)?;if version(&staged)?==1{migrate_legacy(&mut staged,source)?;}validate_database(&staged)?;let mut imported_products=query(&staged,PRODUCT_SELECT,product_row)?;let mut imported_entries=query(&staged,ENTRY_SELECT,entry_row)?;let mut imported_lines=query(&staged,LINE_SELECT,line_row)?;let imported_quality=quality::annotate(&staged,&mut imported_products,&mut imported_entries,&mut imported_lines)?;
+   copy_database(&incoming,&staging)?;let mut staged=Connection::open(&staging).map_err(db_error)?;staged.pragma_update(None,"foreign_keys","ON").map_err(db_error)?;if version(&staged)?==1{migrate_legacy(&mut staged,source)?;}if version(&staged)?==2{dispositions::migrate_v2(&mut staged)?;}validate_database(&staged)?;let mut imported_products=query(&staged,PRODUCT_SELECT,product_row)?;let mut imported_entries=query(&staged,ENTRY_SELECT,entry_row)?;let mut imported_lines=query(&staged,LINE_SELECT,line_row)?;dispositions::annotate(&staged,&mut imported_lines)?;let imported_quality=quality::annotate(&staged,&mut imported_products,&mut imported_entries,&mut imported_lines)?;
    let pre=self.path.with_file_name(format!("before-restore-{}-{}.db",Utc::now().format("%Y%m%d-%H%M%S"),Uuid::new_v4().simple()));self.backup(&pre)?;
    {let backup=Backup::new(&staged,&mut self.conn).map_err(db_error)?;backup.run_to_completion(128,Duration::from_millis(5),None).map_err(db_error)?;}configure(&self.conn)?;Ok(json!({"restored":true,"pre_restore_backup":pre.to_string_lossy(),"data_quality":imported_quality}))})();
   let _=incoming.execute_batch("ROLLBACK;");drop(incoming);let _=fs::remove_file(staging);result
@@ -97,6 +83,8 @@ const LINE_SELECT:&str="SELECT l.id,l.sale_id,l.product_id,l.item_code,l.product
 fn product_row(r:&rusqlite::Row<'_>)->rusqlite::Result<Value>{let quantity:i64=r.get(6)?;let unknown:i64=r.get(7)?;let known:i64=r.get(8)?;Ok(json!({"id":r.get::<_,String>(0)?,"item_code":r.get::<_,String>(1)?,"name":r.get::<_,String>(2)?,"model_description":r.get::<_,String>(3)?,"created_at":r.get::<_,String>(4)?,"updated_at":r.get::<_,String>(5)?,"quantity":quantity,"unknown_cost_units":unknown,"known_inventory_value_baisa":known,"inventory_value_baisa":if unknown>0{None}else{Some(known)},"stock_status":match quantity{0=>"out",1=>"critical",2=>"low",_=>"normal"}}))}
 fn entry_row(r:&rusqlite::Row<'_>)->rusqlite::Result<Value>{Ok(json!({"id":r.get::<_,String>(0)?,"product_id":r.get::<_,String>(1)?,"item_code":r.get::<_,String>(2)?,"product_name":r.get::<_,String>(3)?,"quantity":r.get::<_,i64>(4)?,"remaining_quantity":r.get::<_,i64>(5)?,"unit_cost_baisa":r.get::<_,Option<i64>>(6)?,"created_at":r.get::<_,String>(7)?,"legacy":r.get::<_,bool>(8)?}))}
 fn line_row(r:&rusqlite::Row<'_>)->rusqlite::Result<Value>{Ok(json!({"id":r.get::<_,String>(0)?,"sale_id":r.get::<_,String>(1)?,"product_id":r.get::<_,String>(2)?,"item_code":r.get::<_,String>(3)?,"product_name":r.get::<_,String>(4)?,"model_description":r.get::<_,String>(5)?,"quantity":r.get::<_,i64>(6)?,"unit_price_baisa":r.get::<_,Option<i64>>(7)?,"cost_baisa":r.get::<_,Option<i64>>(8)?,"revenue_baisa":r.get::<_,Option<i64>>(9)?,"profit_baisa":r.get::<_,Option<i64>>(10)?,"cr_number":r.get::<_,Option<String>>(11)?,"created_at":r.get::<_,String>(12)?,"legacy":r.get::<_,bool>(13)?,"legacy_reference":r.get::<_,String>(14)?}))}
+pub(crate) fn financial_lines(lines:&[Value])->Vec<Value>{dispositions::report_lines(lines).0}
+
 type Allocation=(String,i64,Option<i64>);
 fn allocate_fifo(conn:&Connection,id:&str,quantity:i64)->Result<Vec<Allocation>,String>{let mut statement=conn.prepare("SELECT e.id,b.remaining_quantity,e.unit_cost_baisa FROM stock_entries e JOIN entry_balances b ON e.id=b.id WHERE e.product_id=?1 AND b.remaining_quantity>0 ORDER BY e.created_at,e.rowid").map_err(db_error)?;let mut rows=statement.query([id]).map_err(db_error)?;let mut remaining=quantity;let mut allocations=Vec::new();while let Some(row)=rows.next().map_err(db_error)?{let available:i64=row.get(1).map_err(db_error)?;let take=available.min(remaining);allocations.push((row.get(0).map_err(db_error)?,take,row.get(2).map_err(db_error)?));remaining-=take;if remaining==0{break;}}if remaining!=0{return Err(format!("Insufficient stock: requested {quantity}, available {}.",quantity-remaining));}Ok(allocations)}
 fn allocation_cost(allocations:&[Allocation])->Result<Option<i64>,String>{let mut total=0;for(_,qty,cost)in allocations{match cost{Some(cost)=>total=checked_add(total,qty*cost)?,None=>return Ok(None)}}Ok(Some(total))}
@@ -144,7 +132,8 @@ fn validate_structure(conn:&Connection,schema:&str,expected:i64)->Result<(),Stri
 }
 fn invalid(conn:&Connection,sql:&str)->Result<bool,String>{conn.query_row(sql,[],|r|r.get(0)).map_err(db_error)}
 fn validate_database(conn:&Connection)->Result<(),String>{
- validate_structure(conn,SCHEMA,2)?;
+ let v=version(conn)?;validate_structure(conn,if v==2{SCHEMA_V2}else{SCHEMA},if v==2{2}else{3})?;
+ if v==3{dispositions::validate(conn)?;}
  if invalid(conn,"SELECT EXISTS(SELECT 1 FROM product_balances WHERE quantity<0 OR quantity>1000000)")?{return Err("The database contains invalid stock balances.".into());}
  if invalid(conn,"SELECT EXISTS(SELECT 1 FROM entry_balances WHERE remaining_quantity<0 OR remaining_quantity>quantity)")?{return Err("The database contains invalid FIFO balances.".into());}
  if invalid(conn,"SELECT EXISTS(SELECT 1 FROM fifo_allocations a JOIN sale_lines l ON l.id=a.line_id JOIN stock_entries e ON e.id=a.entry_id WHERE e.product_id!=l.product_id)")?{return Err("The database contains inconsistent FIFO product references.".into());}
@@ -214,7 +203,7 @@ mod tests{
   fn snapshot(&self)->Value{self.store.snapshot(&json!({})).unwrap()}
  }
  #[test]fn single_user_product_codes_are_numeric_unique_and_manual(){
-  let mut f=Fixture::new();assert_eq!(f.call("status",json!({})).unwrap(),json!({"ready":true,"schema_version":2}));
+  let mut f=Fixture::new();assert_eq!(f.call("status",json!({})).unwrap(),json!({"ready":true,"schema_version":3}));
   for action in ["login","setup","create_user","create_order","record_movement"]{assert!(f.call(action,json!({})).is_err());}
   for code in ["","0","000","-1","1.0","A12","12 OR 1=1","١٢"]{assert!(f.call("save_product",json!({"product":{"item_code":code,"name":"Display","model_description":"Phone"}})).is_err());}
   let p=f.call("save_product",json!({"product":{"item_code":"0011234","name":"iPhone display","model_description":"17 Pro Max"}})).unwrap();assert_eq!(p["item_code"],"11234");assert_eq!(p["quantity"],0);
@@ -278,7 +267,7 @@ mod tests{
   let code=store.product("p1").unwrap()["item_code"].as_str().unwrap().to_string();let sale=store.execute("stock_out",json!({"cr_number":"99876","lines":[{"item_code":code,"quantity":1,"unit_price_baisa":10000}]})).unwrap();assert!(sale["cost_baisa"].is_null());assert!(sale["profit_baisa"].is_null());assert_eq!(sale["revenue_baisa"],10000);validate_database(&store.conn).unwrap();
  }
  #[test]fn restoring_v1_migrates_private_copy_and_leaves_selected_backup_unchanged(){
-  let mut f=Fixture::new();f.entry("1",2,50);let old=f.directory.path().join("legacy.db");legacy_fixture(&old);let source_bytes=fs::read(&old).unwrap();f.store.restore(&old).unwrap();assert_eq!(fs::read(&old).unwrap(),source_bytes);assert_eq!(f.snapshot()["summary"]["total_units"],6);assert_eq!(version(&f.store.conn).unwrap(),2);
+  let mut f=Fixture::new();f.entry("1",2,50);let old=f.directory.path().join("legacy.db");legacy_fixture(&old);let source_bytes=fs::read(&old).unwrap();f.store.restore(&old).unwrap();assert_eq!(fs::read(&old).unwrap(),source_bytes);assert_eq!(f.snapshot()["summary"]["total_units"],6);assert_eq!(version(&f.store.conn).unwrap(),3);
  }
 
  #[test]fn schema_line_endings_are_portable_without_weakening_validation(){

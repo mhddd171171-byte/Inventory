@@ -97,7 +97,7 @@ fn same_records(left:&Path,right:&Path)->bool {
         let db=rusqlite::Connection::open_with_flags(path,rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         db.pragma_update(None,"trusted_schema","OFF")?;
         let mut tables=Vec::new();
-        for table in ["products","stock_entries","sales","sale_lines","fifo_allocations","legacy_archive","migration_info"] {
+        for table in ["products","stock_entries","sales","sale_lines","fifo_allocations","legacy_archive","migration_info","stock_out_details","damaged_returns"] {
             let mut stmt=db.prepare(&format!("SELECT * FROM {table} ORDER BY rowid"))?;
             let rows=stmt.query_map([],|row|(0..row.as_ref().column_count()).map(|i|row.get(i)).collect::<rusqlite::Result<Vec<rusqlite::types::Value>>>())?.collect::<rusqlite::Result<Vec<_>>>()?;
             tables.push(rows);
@@ -191,4 +191,11 @@ mod tests {
         for i in 0..70 {let name=format!("inventory-auto-20261018T1200{:02}.000000000Z-{}.db",i%60,Uuid::new_v4().simple());fs::write(dir.path().join(name),b"snapshot").unwrap();}
         assert_eq!(records(dir.path()).len(),70);prune(dir.path(),None);assert_eq!(records(dir.path()).len(),30);assert!(manual.exists());
     }
+    #[test] fn return_only_changes_are_automatically_backed_up_and_survive_restart() {
+        let dir=tempfile::tempdir().unwrap();let path=dir.path().join("inventory.db");let root=dir.path().join("backups");let mut store=Store::open(&path).unwrap();let mut safe=DataSafety::new(root.clone(),None,true);
+        safe.execute(&mut store,"stock_entry",entry()).unwrap();safe.execute(&mut store,"stock_out",json!({"cr_number":"123","lines":[{"item_code":"11234","quantity":1,"unit_price_baisa":2500}]})).unwrap();let id=store.snapshot(&json!({})).unwrap()["sale_lines"][0]["id"].as_str().unwrap().to_string();
+        safe.execute(&mut store,"damaged_return",json!({"password":"1234","line_id":id,"quantity":1,"resolution":"pending","refund_baisa":0,"extra_baisa":0,"note":"Factory issue"})).unwrap();let before=store.snapshot(&json!({})).unwrap();let backup=safe.latest.clone().unwrap();drop(store);
+        let store=Store::open(&path).unwrap();let count=records(&root).len();let mut restarted=DataSafety::new(root.clone(),None,true);restarted.startup(&store);assert_eq!(records(&root).len(),count);let mut recovered=Store::open(&dir.path().join("recovered.db")).unwrap();recovered.restore(&backup).unwrap();assert_eq!(recovered.snapshot(&json!({})).unwrap(),before);
+    }
+
 }

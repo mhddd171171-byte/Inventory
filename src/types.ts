@@ -22,7 +22,9 @@ export type Sale = {
   revenue_baisa: number | null; cost_baisa: number | null; profit_baisa: number | null;
   legacy?: boolean; legacy_reference?: string;
 };
+export type DamagedReturn = {id:string;line_id:string;quantity:number;resolution:'pending'|'refund'|'replacement';refund_baisa:number;extra_baisa:number;replacement_line_id:string|null;note:string;created_at:string;resolved_at:string|null};
 export type SaleLine = {
+  purpose?: 'sale'|'personal'|'damage'|'replacement'|'return_settlement'; returned_quantity?:number;returns?:DamagedReturn[];
   data_issues?: string[];
   id: string; sale_id: string; product_id: string; item_code: string; product_name: string;
   model_description: string; cr_number: string | null; quantity: number;
@@ -36,9 +38,9 @@ export type MonthlyProduct = {
 export type Snapshot = {
   data_quality?: {products:number;stock_entries:number;sale_lines:number;generated_item_codes:number};
   month: string; products: Product[]; entries: StockEntry[]; sales: Sale[]; sale_lines: SaleLine[];
-  monthly_sales_lines: SaleLine[]; monthly_summary: MonthlyProduct[]; low_stock: Product[];
+  monthly_other_lines?:SaleLine[]; monthly_sales_lines: SaleLine[]; monthly_summary: MonthlyProduct[]; low_stock: Product[];
   summary: {
-    total_products: number; total_units: number; inventory_value_baisa: number | null;
+    monthly_personal_cost_baisa?:number|null;monthly_damage_cost_baisa?:number|null;total_products: number; total_units: number; inventory_value_baisa: number | null;
     known_inventory_value_baisa: number; unknown_cost_units: number; monthly_units_sold: number;
     monthly_sales_baisa: number | null; known_monthly_sales_baisa: number;
     monthly_cost_baisa: number | null; monthly_profit_baisa: number | null; unknown_sales_lines: number;

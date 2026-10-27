@@ -1,3 +1,4 @@
+import { financialLines } from './movements';
 import type { Product, SaleLine, Snapshot, StockEntry } from './types';
 import { normalize, numericReference } from './utils';
 
@@ -13,7 +14,7 @@ export function searchSnapshot(snapshot:Snapshot, input:SearchFilters):SearchRes
   const terms = normalize(filters.query).split(/\s+/).filter(Boolean);
   const textMatches = (...fields:(string|null|undefined)[]) => {const haystack=normalize(fields.filter(Boolean).join(' '));return terms.every(term=>haystack.includes(term));};
   const inRange = (stamp:string) => {const d=new Date(stamp);if(!Number.isFinite(d.getTime())) return false;const local=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;return (!filters.from || local>=filters.from)&&(!filters.to || local<=filters.to);};
-  const sales = snapshot.sale_lines.filter(l => (!filters.cr || l.cr_number===filters.cr) && (!filters.itemCode || l.item_code===filters.itemCode) && inRange(l.created_at) && textMatches(l.cr_number,l.item_code,l.product_name,l.model_description,l.legacy_reference));
+  const sales = financialLines(snapshot.sale_lines).filter(l => (!filters.cr || l.cr_number===filters.cr) && (!filters.itemCode || l.item_code===filters.itemCode) && inRange(l.created_at) && textMatches(l.cr_number,l.item_code,l.product_name,l.model_description,l.legacy_reference));
   const byId = new Map(snapshot.products.map(p=>[p.id,p]));
   // CR belongs to a sale, never an incoming delivery. Both exact filters must
   // match the SAME sale line, including repeated CRs across separate sales.
