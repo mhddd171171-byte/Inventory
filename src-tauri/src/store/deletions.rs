@@ -32,6 +32,7 @@ impl Store {
     tx.execute("DELETE FROM stock_out_details WHERE line_id=?1",[&id]).map_err(db_error)?;
     tx.execute("DELETE FROM sale_lines WHERE id=?1",[&id]).map_err(db_error)?;
     tx.execute("DELETE FROM sales WHERE id=?1 AND NOT EXISTS(SELECT 1 FROM sale_lines WHERE sale_id=?1)",[before["sale_id"].as_str().unwrap()]).map_err(db_error)?;
+    tx.execute("UPDATE sales SET cr_number=NULL WHERE id=?1 AND NOT EXISTS(SELECT 1 FROM sale_lines l LEFT JOIN stock_out_details d ON d.line_id=l.id WHERE l.sale_id=sales.id AND COALESCE(d.purpose,'sale') IN ('sale','replacement'))",[before["sale_id"].as_str().unwrap()]).map_err(db_error)?;
    },_=>unreachable!()
   }
   if kind!="product"{corrections::recalculate(&tx)?;}
