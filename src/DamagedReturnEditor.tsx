@@ -14,7 +14,7 @@ export default function DamagedReturnEditor({line,products,pending,saved,close}:
  async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{
   const quantity=positiveQuantity(qty);
   if(quantity>(pending?.quantity??remaining))throw new Error('Returned quantity exceeds the units eligible for return.');
-  await call('damaged_return',{password,line_id:line.id,return_id:pending?.id??null,quantity,resolution,note:note.trim(),refund_baisa:resolution==='pending'?0:toBaisa(refund),extra_baisa:resolution==='replacement'?toBaisa(extra):0,replacement_item_code:resolution==='replacement'?numericReference(replacement?.item_code??''):null});
+  await call('damaged_return',{_online_state:line._online_state,password,line_id:line.id,return_id:pending?.id??null,quantity,resolution,note:note.trim(),refund_baisa:resolution==='pending'?0:toBaisa(refund),extra_baisa:resolution==='replacement'?toBaisa(extra):0,replacement_item_code:resolution==='replacement'?numericReference(replacement?.item_code??''):null});
   setPassword('');await saved();setResult('Damaged return saved. Original CR preserved and a recovery backup created.');
  }catch(e){setError(errorMessage(e));}finally{setBusy(false);}}
  return <Dialog title={pending?'Resolve pending damaged return':'Record damaged return'} close={()=>{if(!busy)close();}}><form className="dialog-body" onSubmit={submit}>

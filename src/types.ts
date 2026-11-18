@@ -6,13 +6,16 @@ export type AssistantStatus = {
   voice_interrupted?: boolean;
 };
 export type VoiceStatus = { configured: boolean; ready: boolean; active: boolean; message: string };
+export type OnlineState={revision:number;epoch:string};
 export type Product = {
+  _online_state?:OnlineState;
   data_issues?: string[];
   id: string; item_code: string; name: string; model_description: string; quantity: number;
   inventory_value_baisa: number | null; unknown_cost_units: number;
   stock_status: 'normal' | 'low' | 'critical' | 'out'; created_at: string; updated_at: string;
 };
 export type StockEntry = {
+  _online_state?:OnlineState;
   data_issues?: string[];
   id: string; product_id: string; item_code: string; product_name: string;
   quantity: number; remaining_quantity: number; unit_cost_baisa: number | null; created_at: string;
@@ -24,6 +27,7 @@ export type Sale = {
 };
 export type DamagedReturn = {id:string;line_id:string;quantity:number;resolution:'pending'|'refund'|'replacement';refund_baisa:number;extra_baisa:number;replacement_line_id:string|null;note:string;created_at:string;resolved_at:string|null};
 export type SaleLine = {
+  _online_state?:OnlineState;warranty?:{original_cr:string;new_cr:string;original_line_id:string};warranties?:{original_cr:string;new_cr:string}[];warranty_cost_baisa?:number|null;adjusted_profit_baisa?:number|null;
   purpose?: 'sale'|'personal'|'damage'|'replacement'|'return_settlement'; returned_quantity?:number;returns?:DamagedReturn[];
   data_issues?: string[];
   id: string; sale_id: string; product_id: string; item_code: string; product_name: string;
@@ -36,6 +40,7 @@ export type MonthlyProduct = {
   quantity_remaining: number; cost_baisa: number | null; revenue_baisa: number | null; profit_baisa: number | null;
 };
 export type Snapshot = {
+  online_state?:OnlineState;
   data_quality?: {products:number;stock_entries:number;sale_lines:number;generated_item_codes:number};
   month: string; products: Product[]; entries: StockEntry[]; sales: Sale[]; sale_lines: SaleLine[];
   monthly_other_lines?:SaleLine[]; monthly_sales_lines: SaleLine[]; monthly_summary: MonthlyProduct[]; low_stock: Product[];

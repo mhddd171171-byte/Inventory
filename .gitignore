@@ -21,3 +21,10 @@ src-tauri/resources/voice/stt/model.bin
 src-tauri/resources/voice/tts/**/*.onnx
 src-tauri/resources/voice/tts/**/voice.bin
 build-inputs/
+
+# Online development artifacts and private deployment configuration
+*.log
+server/target/
+server/data/
+server/.env
+.env.local

@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import type {SaleLine} from "./types";
 import { jsPDF } from 'jspdf';
 import { autoTable, type CellInput, type UserOptions } from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
@@ -62,6 +63,7 @@ export function createReportModel(type: ReportType, snapshot: ReportSnapshot, op
       model.notes.push('Quantity sold and financial totals refer to the selected month. Quantity remaining is the current available balance.');
     }
   }
+  if(type!=='current_inventory')appendWarrantyTables(model,snapshot.sale_lines??[]);
   return model;
 }
 let fontPromise: Promise<ReportFonts> | undefined;
@@ -79,7 +81,16 @@ export function createSearchReportModel(results:SearchResults, now=new Date()):R
   model.tables.push({title:'Items sold',headings:['Date / Time','CR Number','Item Code','Product Name / Model','Qty','Selling OMR / unit','Buying Cost OMR total','Sold For OMR total','Profit OMR'],widths:[30,26,26,64,12,27,28,28,28],numericColumns:[4,5,6,7,8],moneyColumns:[5,6,7,8],rows:results.sales.map(l=>[stamp(l.created_at),l.cr_number??`Legacy: ${l.legacy_reference||'not recorded'}`,l.item_code,`${l.product_name}${l.purpose&&l.purpose!=='sale'?` — ${movementLabel(l.purpose)}`:''}\n${l.model_description}`,String(l.quantity),amount(l.unit_price_baisa),amount(l.cost_baisa),amount(l.revenue_baisa),amount(l.profit_baisa)])});
   model.tables.push({title:'Current matching products',headings:['Item Code','Product Name / Model','Available Qty','Purchase Value OMR','Status'],widths:[30,110,35,50,44],numericColumns:[2,3],moneyColumns:[3],rows:results.products.map(p=>[p.item_code,`${p.name}\n${p.model_description}`,String(p.quantity),amount(p.inventory_value_baisa),stockLabel(p.quantity)])});
   if(!f.cr) model.tables.push({title:'Incoming stock batches',headings:['Date / Time','Item Code','Product','Received','Remaining','Buying OMR / unit','Bought For OMR total'],widths:[29,24,74,24,24,38,52],numericColumns:[3,4,5,6],moneyColumns:[5,6],rows:results.entries.map(e=>[stamp(e.created_at),e.item_code,e.product_name,String(e.quantity),String(e.remaining_quantity),amount(e.unit_cost_baisa),batchBuyingTotal(e)==null?'Unknown':formatBaisa(batchBuyingTotal(e)!)])});
+  appendWarrantyTables(model,results.sales);
   return model;
+}
+function appendWarrantyTables(model:ReportModel,lines:SaleLine[]) {
+ const originals=lines.filter(l=>l.warranties?.length);
+ const replacements=lines.filter(l=>l.warranty);
+ if(!originals.length&&!replacements.length)return;
+ model.notes.push('Warranty replacements have zero revenue. Their FIFO cost is recognized on the replacement date. Adjusted lifetime profit below attributes the same cost to the original sale; do not subtract it again from monthly totals.');
+ if(originals.length)model.tables.push({title:'Original sales with warranty — lifetime attribution (not monthly totals)',headings:['Original CR','Item Code','Product','Original Profit OMR','Linked Replacement Cost OMR','Adjusted Lifetime Profit OMR'],widths:[30,25,75,40,45,45],numericColumns:[3,4,5],moneyColumns:[3,4,5],rows:originals.map(l=>[l.cr_number??'—',l.item_code,l.product_name,amount(l.profit_baisa),amount(l.warranty_cost_baisa??null),amount(l.adjusted_profit_baisa??null)])});
+ if(replacements.length)model.tables.push({title:'Warranty CR links',headings:['Date','Original CR','New CR','Item Code','Replacement','Qty','FIFO Cost OMR'],widths:[35,25,25,25,75,20,40],numericColumns:[5,6],moneyColumns:[6],rows:replacements.map(l=>[stamp(l.created_at),l.warranty!.original_cr,l.warranty!.new_cr,l.item_code,l.product_name,String(l.quantity),amount(l.cost_baisa)])});
 }
 async function loadFonts(): Promise<ReportFonts> {
   if (!fontPromise) {

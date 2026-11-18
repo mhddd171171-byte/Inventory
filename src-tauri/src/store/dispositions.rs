@@ -53,7 +53,12 @@ impl Store{
   let cr=if has_sale{Some(numeric_reference(payload,"cr_number")?)}else{if !optional_text(payload,"cr_number",30)?.is_empty(){return Err("A non-sale Stock Out must not have a customer CR.".into());}None};
   let tx=self.conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db_error)?;let result=append(&tx,cr.as_deref(),&requested,&now())?;validate_database(&tx)?;tx.commit().map_err(db_error)?;Ok(result)
  }
- pub(super) fn damaged_return(&mut self,payload:&Value)->Result<Value,String>{
+ pub(super) fn warranty(&mut self,payload:&Value)->Result<Value,String>{
+  if payload["resolution"]!="replacement" || payload["refund_baisa"]!=0 || payload["extra_baisa"]!=0 || payload["return_id"].as_str().is_some_and(|s|!s.is_empty()){return Err("Warranty requires a new zero-price replacement without payments.".into());}
+  self.return_operation(payload,true)
+ }
+ pub(super) fn damaged_return(&mut self,payload:&Value)->Result<Value,String>{self.return_operation(payload,false)}
+ fn return_operation(&mut self,payload:&Value,warranty:bool)->Result<Value,String>{
   corrections::authorize(payload)?;
   let line=required_text(payload,"line_id",100)?;let resolution=required_text(payload,"resolution",20)?;
   if !["refund","replacement","pending"].contains(&resolution.as_str()){return Err("Choose refund, replacement or pending.".into());}
@@ -69,12 +74,22 @@ impl Store{
   // original paid sale instead; never invent an unrecorded refund entitlement.
   let already:i64=tx.query_row("SELECT COALESCE(SUM(quantity),0) FROM damaged_returns WHERE line_id=?1 AND id!=?2",params![line,return_id],|r|r.get(0)).map_err(db_error)?;
   if qty+already>original.0{return Err("Returned quantity exceeds the units still eligible for return.".into());}
+  let new_cr=if warranty{let cr=numeric_reference(payload,"new_cr_number")?;if cr==original.2{return Err("Enter a new CR different from the original CR.".into());}Some(cr)}else{None};
+  if warranty {let code=numeric_reference(payload,"replacement_item_code")?;let product:String=tx.query_row("SELECT id FROM products WHERE item_code=?1",[&code],|r|r.get(0)).map_err(|_|"Replacement item not found.")?;if allocation_cost(&allocate_fifo(&tx,&product,qty)?)?.is_none(){return Err("Enter the actual buying cost before issuing warranty stock.".into());}}
   let paid=original.1.ok_or("The original selling price is unknown. Correct it before recording a refund.")?;
   if refund>qty*paid{return Err("Refund exceeds the original amount paid for the returned units.".into());}
   if !return_id.is_empty(){let existing:(String,i64,String)=tx.query_row("SELECT line_id,quantity,resolution FROM damaged_returns WHERE id=?1",[&return_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(|_|"Pending return not found.".to_string())?;if existing!=(line.clone(),qty,"pending".into())||resolution=="pending"{return Err("Only an unresolved pending return can be settled, with its original quantity.".into());}}
-  let time=now();let replacement=if resolution=="replacement"{let code=numeric_reference(payload,"replacement_item_code")?;let result=append(&tx,Some(&original.2),&[(code,qty,0,"replacement".into())],&time)?;Some(result["line_ids"][0].as_str().unwrap().to_string())}else{None};
+  let time=now();let replacement=if resolution=="replacement"{let code=numeric_reference(payload,"replacement_item_code")?;let result=append(&tx,Some(new_cr.as_deref().unwrap_or(&original.2)),&[(code,qty,0,"replacement".into())],&time)?;Some(result["line_ids"][0].as_str().unwrap().to_string())}else{None};
   let resolved=if resolution=="pending"{None}else{Some(time.clone())};let id=if return_id.is_empty(){Uuid::new_v4().to_string()}else{return_id.clone()};
   if return_id.is_empty(){tx.execute("INSERT INTO damaged_returns(id,line_id,quantity,resolution,refund_baisa,extra_baisa,replacement_line_id,note,created_at,resolved_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",params![id,line,qty,resolution,refund,extra,replacement,note,time,resolved]).map_err(db_error)?;}else{tx.execute("UPDATE damaged_returns SET resolution=?2,refund_baisa=?3,extra_baisa=?4,replacement_line_id=?5,note=?6,resolved_at=?7 WHERE id=?1",params![id,resolution,refund,extra,replacement,note,resolved]).map_err(db_error)?;}
+  if let Some(new_cr)=new_cr {
+   let mut root=line.clone();let mut visited=HashSet::new();
+   while visited.insert(root.clone()){let parent:Option<String>=tx.query_row("SELECT line_id FROM damaged_returns WHERE replacement_line_id=?1",[&root],|r|r.get(0)).optional().map_err(db_error)?;match parent{Some(p)=>root=p,None=>break}}
+   if !visited.contains(&root){return Err("Invalid warranty chain.".into());}
+   let root_cr:String=tx.query_row("SELECT s.cr_number FROM sale_lines l JOIN sales s ON s.id=l.sale_id WHERE l.id=?1",[&root],|r|r.get(0)).map_err(db_error)?;
+   let link=json!({"return_id":id,"original_line_id":root,"claim_line_id":line,"replacement_line_id":replacement,"original_cr":root_cr,"claim_cr":original.2,"new_cr":new_cr});
+   tx.execute("INSERT INTO legacy_archive(kind,record_id,record_json) VALUES('warranty_link',?1,?2)",params![id,link.to_string()]).map_err(db_error)?;
+  }
   let amounts=query(&tx,"SELECT refund_baisa,extra_baisa FROM damaged_returns",|r|Ok(json!({"refund":r.get::<_,i64>(0)?,"extra":r.get::<_,i64>(1)?})))?;sum_field(&amounts,"refund")?;sum_field(&amounts,"extra")?;
   tx.execute("INSERT INTO legacy_archive(kind,record_id,record_json) VALUES('damaged_return_event',?1,?2)",params![Uuid::new_v4().to_string(),json!({"return_id":id,"line_id":line,"resolution":resolution,"quantity":qty,"note":note,"refund_baisa":refund,"extra_baisa":extra,"created_at":time,"pre_edit_backup":recovery.to_string_lossy()}).to_string()]).map_err(db_error)?;
   validate_database(&tx)?;tx.commit().map_err(db_error)?;Ok(json!({"saved":true,"id":id,"pre_edit_backup":recovery.to_string_lossy()}))
@@ -86,9 +101,10 @@ pub(super) fn validate(conn:&Connection)->Result<(),String>{
  "SELECT EXISTS(SELECT 1 FROM sale_lines l JOIN sales s ON s.id=l.sale_id LEFT JOIN stock_out_details d ON d.line_id=l.id WHERE (COALESCE(d.purpose,'sale') IN ('sale','replacement') AND s.legacy=0 AND s.cr_number IS NULL) OR (d.purpose IN ('personal','damage','replacement') AND l.unit_price_baisa IS NOT 0))",
  "SELECT EXISTS(SELECT 1 FROM sales s WHERE s.cr_number IS NOT NULL AND NOT EXISTS(SELECT 1 FROM sale_lines l LEFT JOIN stock_out_details d ON d.line_id=l.id WHERE l.sale_id=s.id AND COALESCE(d.purpose,'sale') IN ('sale','replacement')))",
  "SELECT EXISTS(SELECT 1 FROM damaged_returns r JOIN sale_lines l ON l.id=r.line_id LEFT JOIN stock_out_details d ON d.line_id=l.id WHERE COALESCE(d.purpose,'sale') NOT IN ('sale','replacement') OR l.unit_price_baisa IS NULL OR r.refund_baisa>r.quantity*l.unit_price_baisa OR (SELECT SUM(quantity) FROM damaged_returns WHERE line_id=l.id)>l.quantity OR (r.refund_baisa>0 AND r.extra_baisa>0))",
- "SELECT EXISTS(SELECT 1 FROM damaged_returns r JOIN sale_lines o ON o.id=r.line_id JOIN sales os ON os.id=o.sale_id LEFT JOIN sale_lines l ON l.id=r.replacement_line_id LEFT JOIN sales s ON s.id=l.sale_id LEFT JOIN stock_out_details d ON d.line_id=l.id WHERE os.cr_number IS NULL OR (r.resolution='replacement' AND (l.id IS NULL OR l.quantity!=r.quantity OR s.cr_number IS NOT os.cr_number OR d.purpose IS NOT 'replacement')))",
+ "SELECT EXISTS(SELECT 1 FROM damaged_returns r JOIN sale_lines o ON o.id=r.line_id JOIN sales os ON os.id=o.sale_id LEFT JOIN sale_lines l ON l.id=r.replacement_line_id LEFT JOIN sales s ON s.id=l.sale_id LEFT JOIN stock_out_details d ON d.line_id=l.id WHERE os.cr_number IS NULL OR (r.resolution='replacement' AND (l.id IS NULL OR l.quantity!=r.quantity OR (s.cr_number IS NOT os.cr_number AND NOT EXISTS(SELECT 1 FROM legacy_archive w WHERE w.kind='warranty_link' AND w.record_id=r.id AND json_extract(w.record_json,'$.new_cr')=s.cr_number AND COALESCE(json_extract(w.record_json,'$.claim_cr'),json_extract(w.record_json,'$.original_cr'))=os.cr_number)) OR d.purpose IS NOT 'replacement')))",
  "SELECT EXISTS(SELECT 1 FROM stock_out_details d WHERE d.purpose='replacement' AND NOT EXISTS(SELECT 1 FROM damaged_returns r WHERE r.replacement_line_id=d.line_id))"
  ];
+ if invalid(conn,"SELECT EXISTS(SELECT 1 FROM legacy_archive w LEFT JOIN damaged_returns r ON r.id=w.record_id LEFT JOIN sale_lines l ON l.id=json_extract(w.record_json,'$.original_line_id') WHERE w.kind='warranty_link' AND (r.id IS NULL OR l.id IS NULL OR json_extract(w.record_json,'$.claim_line_id') IS NOT r.line_id OR json_extract(w.record_json,'$.replacement_line_id') IS NOT r.replacement_line_id OR r.resolution!='replacement' OR r.refund_baisa!=0 OR r.extra_baisa!=0))")?{return Err("Invalid warranty links.".into());}
  for sql in checks{if invalid(conn,sql)?{return Err("The database contains inconsistent stock purposes or damaged returns.".into());}}
  let returns=query(conn,"SELECT refund_baisa,extra_baisa FROM damaged_returns",|r|Ok(json!({"refund":r.get::<_,i64>(0)?,"extra":r.get::<_,i64>(1)?})))?;
  let headers=query(conn,"SELECT revenue_baisa,cost_baisa FROM sales",|r|Ok(json!({"revenue":r.get::<_,Option<i64>>(0)?,"cost":r.get::<_,Option<i64>>(1)?})))?;
@@ -103,6 +119,19 @@ pub(super) fn validate(conn:&Connection)->Result<(),String>{
 pub(super) fn annotate(conn:&Connection,lines:&mut [Value])->Result<(),String>{
  let details=query(conn,"SELECT line_id,purpose FROM stock_out_details",|r|Ok(json!({"id":r.get::<_,String>(0)?,"purpose":r.get::<_,String>(1)?})))?;
  let returns=query(conn,"SELECT id,line_id,quantity,resolution,refund_baisa,extra_baisa,replacement_line_id,note,created_at,resolved_at FROM damaged_returns ORDER BY rowid",|r|Ok(json!({"id":r.get::<_,String>(0)?,"line_id":r.get::<_,String>(1)?,"quantity":r.get::<_,i64>(2)?,"resolution":r.get::<_,String>(3)?,"refund_baisa":r.get::<_,i64>(4)?,"extra_baisa":r.get::<_,i64>(5)?,"replacement_line_id":r.get::<_,Option<String>>(6)?,"note":r.get::<_,String>(7)?,"created_at":r.get::<_,String>(8)?,"resolved_at":r.get::<_,Option<String>>(9)?})))?;
+ let warranties=query(conn,"SELECT record_json FROM legacy_archive WHERE kind='warranty_link'",|r|r.get::<_,String>(0).map(|s|serde_json::from_str::<Value>(&s).unwrap_or(Value::Null)))?;
+ let costs:HashMap<String,Option<i64>>=lines.iter().map(|l|(l["id"].as_str().unwrap().to_string(),l["cost_baisa"].as_i64())).collect();
+ for line in lines.iter_mut(){
+  let linked:Vec<Value>=warranties.iter().filter(|w|w["original_line_id"]==line["id"]).cloned().collect();
+  if !linked.is_empty(){
+   let mut children=HashSet::from([line["id"].as_str().unwrap().to_string()]);let mut changed=true;
+   while changed {changed=false;for r in &returns{if children.contains(r["line_id"].as_str().unwrap_or("")){if let Some(id)=r["replacement_line_id"].as_str(){changed|=children.insert(id.to_string());}}}}
+   let mut cost=Some(0i64);for id in children.iter().filter(|id|id.as_str()!=line["id"].as_str().unwrap()){cost=match(cost,costs.get(id).copied().flatten()){(Some(a),Some(b))=>Some(checked_add(a,b)?),_=>None};}
+   let mut net=0;for r in returns.iter().filter(|r|children.contains(r["line_id"].as_str().unwrap_or(""))&&!r["resolved_at"].is_null()){net=checked_add(net,r["extra_baisa"].as_i64().unwrap()-r["refund_baisa"].as_i64().unwrap())?;}
+   line["warranty_cost_baisa"]=json!(cost);line["adjusted_profit_baisa"]=json!(line["profit_baisa"].as_i64().zip(cost).map(|(p,c)|p-c+net));line["warranties"]=json!(linked);
+  }
+  if let Some(w)=warranties.iter().find(|w|w["replacement_line_id"]==line["id"]){line["warranty"]=w.clone();}
+ }
  for line in lines{line["purpose"]=details.iter().find(|d|d["id"]==line["id"]).map(|d|d["purpose"].clone()).unwrap_or(json!("sale"));if line["purpose"]=="personal"||line["purpose"]=="damage"{line["cr_number"]=Value::Null;}let rs:Vec<Value>=returns.iter().filter(|r|r["line_id"]==line["id"]).cloned().collect();line["returned_quantity"]=json!(sum_field(&rs,"quantity")?);line["returns"]=json!(rs);}
  Ok(())
 }
@@ -110,6 +139,6 @@ pub(super) fn annotate(conn:&Connection,lines:&mut [Value])->Result<(),String>{
 pub(super) fn report_lines(lines:&[Value])->(Vec<Value>,Vec<Value>){
  let mut sales=Vec::new();let mut other=Vec::new();
  for l in lines{if l["purpose"]=="personal"||l["purpose"]=="damage"{other.push(l.clone());}else{sales.push(l.clone());}
-  if let Some(rs)=l["returns"].as_array(){for r in rs{if r["resolved_at"].is_null(){continue;}let mut event=l.clone();let net=r["extra_baisa"].as_i64().unwrap()-r["refund_baisa"].as_i64().unwrap();event["id"]=json!(format!("return:{}",r["id"].as_str().unwrap()));event["purpose"]=json!("return_settlement");event["created_at"]=r["resolved_at"].clone();event["quantity"]=json!(0);event["unit_price_baisa"]=Value::Null;event["revenue_baisa"]=json!(net);event["cost_baisa"]=json!(0);event["profit_baisa"]=json!(net);event["returns"]=json!([]);event["product_name"]=json!(format!("{} — {} settlement ({} returned)",l["product_name"].as_str().unwrap_or("Item"),r["resolution"].as_str().unwrap(),r["quantity"]));sales.push(event);}}
+  if let Some(rs)=l["returns"].as_array(){for r in rs{if r["resolved_at"].is_null(){continue;}let mut event=l.clone();let net=r["extra_baisa"].as_i64().unwrap()-r["refund_baisa"].as_i64().unwrap();event["id"]=json!(format!("return:{}",r["id"].as_str().unwrap()));event["purpose"]=json!("return_settlement");event["created_at"]=r["resolved_at"].clone();event["quantity"]=json!(0);event["unit_price_baisa"]=Value::Null;event["revenue_baisa"]=json!(net);event["cost_baisa"]=json!(0);event["profit_baisa"]=json!(net);event["returns"]=json!([]);for field in ["warranty","warranties","warranty_cost_baisa","adjusted_profit_baisa"]{event.as_object_mut().unwrap().remove(field);}event["product_name"]=json!(format!("{} — {} settlement ({} returned)",l["product_name"].as_str().unwrap_or("Item"),r["resolution"].as_str().unwrap(),r["quantity"]));sales.push(event);}}
  }(sales,other)
 }

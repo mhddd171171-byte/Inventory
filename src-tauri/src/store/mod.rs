@@ -1,5 +1,6 @@
 //! Single-user SQLite persistence with an immutable FIFO ledger and validated domain operations.
 mod corrections;
+mod online;
 mod dispositions;
 #[cfg(test)] mod disposition_tests;
 mod deletions;
@@ -10,9 +11,9 @@ use rusqlite::{backup::Backup, params, Connection, OpenFlags, OptionalExtension,
 use serde_json::{json, Value};
 use std::{collections::{HashMap, HashSet}, fs, path::{Path, PathBuf}, time::Duration};
 use uuid::Uuid;
-const SCHEMA_V2:&str=include_str!("../migrations/002_single_user.sql");
-const SCHEMA:&str=include_str!("../migrations/003_dispositions.sql");
-const LEGACY_SCHEMA:&str=include_str!("../migrations/001_initial.sql");
+const SCHEMA_V2:&str=include_str!("../../migrations/002_single_user.sql");
+const SCHEMA:&str=include_str!("../../migrations/003_dispositions.sql");
+const LEGACY_SCHEMA:&str=include_str!("../../migrations/001_initial.sql");
 const APPLICATION_ID:i64=1_230_392_653;
 const MAX_QUANTITY:i64=1_000_000;
 const MAX_PRICE:i64=1_000_000_000;
@@ -31,7 +32,7 @@ impl Store {
  }
  pub fn execute(&mut self,action:&str,payload:Value)->Result<Value,String>{
   if !payload.is_object(){return Err("Request payload must be an object.".into());}
-  match action{"status"=>Ok(json!({"ready":true,"schema_version":3})),"snapshot"=>self.snapshot(&payload),"save_product"=>{if payload["product"]["id"].as_str().is_some_and(|id|!id.is_empty()){let result=self.edit_record(&json!({"kind":"product","id":payload["product"]["id"],"password":payload["password"],"changes":payload["product"]}))?;let mut product=self.product(payload["product"]["id"].as_str().unwrap())?;product["pre_edit_backup"]=result["pre_edit_backup"].clone();Ok(product)}else{self.save_product(&payload)}},"edit_record"=>self.edit_record(&payload),"delete_record"=>self.delete_record(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),"damaged_return"=>self.damaged_return(&payload),_=>Err("Unknown application action.".into())}
+  match action{"status"=>Ok(json!({"ready":true,"schema_version":3})),"snapshot"=>self.snapshot(&payload),"save_product"=>{if payload["product"]["id"].as_str().is_some_and(|id|!id.is_empty()){let result=self.edit_record(&json!({"kind":"product","id":payload["product"]["id"],"password":payload["password"],"changes":payload["product"]}))?;let mut product=self.product(payload["product"]["id"].as_str().unwrap())?;product["pre_edit_backup"]=result["pre_edit_backup"].clone();Ok(product)}else{self.save_product(&payload)}},"edit_record"=>self.edit_record(&payload),"delete_record"=>self.delete_record(&payload),"stock_entry"=>self.stock_entry(&payload),"stock_out"=>self.stock_out(&payload),"damaged_return"=>self.damaged_return(&payload),"warranty"=>self.warranty(&payload),_=>Err("Unknown application action.".into())}
  }
  /// Read-only business snapshot; a read transaction prevents mixed report/dashboard states.
  pub fn snapshot(&self,payload:&Value)->Result<Value,String>{
@@ -65,6 +66,7 @@ impl Store {
   let entry=Uuid::new_v4().to_string();let time=now();tx.execute("INSERT INTO stock_entries(id,product_id,quantity,unit_cost_baisa,created_at) VALUES(?1,?2,?3,?4,?5)",params![entry,id,quantity,cost,time]).map_err(db_error)?;tx.execute("UPDATE products SET updated_at=?2 WHERE id=?1",params![id,time]).map_err(db_error)?;tx.commit().map_err(db_error)?;
   self.conn.query_row(&format!("{ENTRY_SELECT} WHERE e.id=?1"),[entry],entry_row).map_err(db_error)
  }
+ pub fn validate_backup(path:&Path)->Result<(),String>{let conn=Connection::open_with_flags(path,OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(db_error)?;validate_database(&conn)}
  pub fn backup(&self,destination:&Path)->Result<Value,String>{reject_same_path(&self.path,destination)?;validate_database(&self.conn)?;copy_database(&self.conn,destination)?;Ok(json!({"path":destination.to_string_lossy()}))}
  pub fn restore(&mut self,source:&Path)->Result<Value,String>{
   reject_same_path(&self.path,source)?;let incoming=Connection::open_with_flags(source,OpenFlags::SQLITE_OPEN_READ_ONLY|OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(|e|format!("Cannot open the backup: {e}"))?;incoming.busy_timeout(Duration::from_secs(5)).map_err(db_error)?;incoming.pragma_update(None,"trusted_schema","OFF").map_err(db_error)?;incoming.execute_batch("BEGIN;").map_err(db_error)?;
