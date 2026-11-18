@@ -36,6 +36,8 @@ Official sources:
 
 ## Validation and unfinished release gates
 
+Verified locally: 77 desktop backend tests passed (2 ignored hardware/model cases), 46 server/domain/HTTP integration tests passed, 25 frontend tests passed, and the TypeScript/Vite production build passed. Intel Mac and live Turso testing have not been performed.
+
 Local test logs are ignored development artifacts (`server-test.log`, `native-test.log`, `frontend-test.log`, `frontend-build.log`). Backend tests cover warranty financial examples, replacement chains, portable backups, competing final-unit sales, lost-response replay and restore invalidation. A Windows integration test starts the real HTTP service and two actual desktop gateways, verifies OS-stored credentials and shared data, then checks disconnection behavior. It deletes only its own test credentials and terminates only its owned child process.
 
 Still required before customer delivery:
