@@ -1387,3 +1387,6 @@ html[data-theme="dark"] .tag.stock-normal { background:#284832; color:#dcf2df; }
 html[data-theme="dark"] :is(input,textarea)::placeholder { color:#a9bdae; opacity:1; }
 html[data-theme="dark"] :is(input,select,textarea):disabled { color:#a9bdae; background:#26312a; opacity:.75; }
 html[data-theme="dark"] :is(.return-history,.return-original,.edit-search,.report-option,.segmented,.order-row,.quick-strip,.preference-section) { border-color:#46554b; }
+
+/* Warranty belongs to the product line, alongside its other movement choices. */
+.warranty-action { margin-top:6px; justify-self:start; min-height:32px; }

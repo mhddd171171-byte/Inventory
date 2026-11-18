@@ -82,7 +82,7 @@ export default function App() {
         {page === 'Search' && <SearchPage snapshot={snapshot} select={select}/>}
       </>}
       <section hidden={page !== 'AI Assistant'}><AssistantPanel visible={page === 'AI Assistant'} status={status}/></section>
-      <footer className="page-footer"><span>Al Mohtarif Repair Center · Inventory Manager</span><span><Database size={12}/>Local SQLite · OMR</span></footer>
+      <footer className="page-footer"><span>Al Mohtarif Repair Center · Inventory Manager</span><span><Database size={12}/>Shared online database · OMR</span></footer>
     </div></main>
     {modal?.kind === 'edit' && <RecordEditor key={`${modal.target.kind}:${modal.target.record.id}`} target={modal.target} products={snapshot?.products??[]} saved={refresh} close={()=>setModal(null)}/>}
     {modal?.kind === 'product' && <ProductForm product={modal.product} saved={refresh} close={() => setModal(null)}/>}
