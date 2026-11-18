@@ -1,5 +1,6 @@
 mod store;
 mod gateway;
+mod turso;
 #[cfg(test)]
 mod data_safety;
 #[cfg(any(target_os="macos",test))]
@@ -279,7 +280,8 @@ pub fn run() {
             let status = assistant.status();
             let runtime_shutdown = assistant.shutdown_handle();
             let voice_shutdown = assistant.voice_shutdown_handle();
-            let store=Gateway::open(&data_dir,&app.path().home_dir()?.join("Inventory Manager Backups")).map_err(std::io::Error::other)?;
+            let backup_directory=if cfg!(debug_assertions){std::env::var_os("INVENTORY_VALIDATION_BACKUP_DIR").map(PathBuf::from).unwrap_or(app.path().home_dir()?.join("Inventory Manager Backups"))}else{app.path().home_dir()?.join("Inventory Manager Backups")};
+            let store=Gateway::open(&data_dir,&backup_directory).map_err(std::io::Error::other)?;
             if let Err(error) = preferences.save(&data_dir) { eprintln!("{error}"); }
             app.manage(AppState {
                 preferences: Mutex::new(preferences),

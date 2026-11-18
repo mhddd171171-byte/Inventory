@@ -2,6 +2,7 @@
 #![cfg(windows)]
 #[path="../../src-tauri/src/gateway.rs"] mod gateway;
 pub use inventory_server::store;
+#[path="../../src-tauri/src/turso.rs"] mod turso;
 use serde_json::{json,Value};
 use std::{process::{Command,Child},time::{Duration,Instant},fs};
 struct Process(Child);

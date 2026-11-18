@@ -8,7 +8,7 @@ export function formatBaisa(value: bigint | number): string {
 export const money = (baisa: number | bigint | null | undefined) => baisa == null ? 'Unknown' : `OMR ${formatBaisa(baisa)}`;
 export const batchBuyingTotal = (entry: {quantity:number;unit_cost_baisa:number|null}):bigint|null => entry.unit_cost_baisa == null ? null : BigInt(entry.quantity)*BigInt(entry.unit_cost_baisa);
 export const dateTime = (date: string) => new Date(date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-export const currentMonth = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; };
+export const currentMonth = () => { const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Muscat',year:'numeric',month:'2-digit'}).formatToParts(new Date()); return `${parts.find(p=>p.type==='year')!.value}-${parts.find(p=>p.type==='month')!.value}`; };
 export const monthLabel = (month: string) => new Date(`${month}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 export const stockLabel = (quantity: number) => quantity === 0 ? 'Out of Stock' : quantity === 1 ? 'Critical Stock' : quantity === 2 ? 'Low Stock' : 'In Stock';
 const asciiDigits = (value: string) => value.replace(/[٠-٩۰-۹]/g, c => String(c.charCodeAt(0) - (c.charCodeAt(0) >= 0x6f0 ? 0x6f0 : 0x660)));

@@ -1,0 +1,41 @@
+name: Shared online inventory platform checks
+on:
+  push:
+    branches: [feature/shared-online-inventory]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: online-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+            server
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Native desktop backend tests
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+      - name: Shared domain and HTTP gateway tests
+        run: cargo test --locked --manifest-path server/Cargo.toml
+      # Live Turso tests remain opt-in and use the developer's OS credential
+      # store. No customer database token is supplied to this workflow.

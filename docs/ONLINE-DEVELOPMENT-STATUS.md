@@ -15,17 +15,25 @@ This is not a customer release. Existing 2.0.11 installers, release branches and
 - Warranty action with original/new CRs, zero-price FIFO replacement, linked history, eligibility checks, adjusted lifetime original profit and separately dated financial costs.
 - Warranty-aware history, search and PDF/Excel report models. Existing personal use, damage and damaged-return workflows retained.
 
-## Provider change: Oracle rejected; Turso under evaluation
+## Provider change: Turso libSQL connection implemented and tested
 
 The owner rejected Oracle because signup requests a payment method. Do not purchase or provision Oracle resources.
 
 Turso's official pricing page checked 19 November 2026 advertises signup without a credit card, a Free plan with 5 GB storage, 500 million rows read/month and 10 million rows written/month. Pricing and allowances remain subject to the provider's terms. Do not enable paid overages or paid plans without explicit owner authorization.
 
-Turso Cloud offers both libSQL and the newer Turso engine. libSQL is the preferred compatibility candidate for this existing SQLite application. The current development service uses local persistent server storage; it is NOT yet a Turso driver. Do not deploy it on ephemeral free hosting and assume that data is persistent.
+The owner created `inventory-test` in Mumbai and uploaded the empty release schema. The application now connects directly to its libSQL SQL-over-HTTP endpoint through the native Rust backend. A separate paid server is not required for this adapter. The earlier persistent-server service remains a tested alternative; it is not the current Turso deployment path.
 
-Important verified differences in Turso Cloud: `PRAGMA user_version` and `application_id` are read-only; `busy_timeout` and `journal_mode` are not managed as in local SQLite. The existing schema initializer, strict backup/schema validator, connection driver, transaction coordination and portable `.db` backup generation must be adapted and tested against the selected Turso engine. Merely replacing a URL will not work. Do not upload the customer's database before a compatibility/migration test succeeds.
+Live connectivity, schema checks, backup export, stock entry, sale, warranty, exact adjusted profit, retry replay, competing final-unit sales, cross-device refresh and restore were tested against the empty test database. Temporary business test records were removed and the verified empty baseline restored after every live scenario.
 
-The database service and the approved business-operation layer are distinct. Selecting Turso does not by itself host the existing Rust HTTP service. The final deployment needs either a Turso-compatible business layer on suitable hosting or a thoroughly validated native connection adapter. Keep database owner credentials out of generic/public installers and out of AI tools.
+Turso's read-only `user_version` and `application_id` pragmas are not changed remotely. Compatibility is checked against the actual table/view/index/trigger definitions. Cloud metadata lives in `migration_info`; local portable backups retain the application's expected SQLite header/schema.
+
+The native backend builds a validated private temporary snapshot from an atomic cloud read, runs the existing domain engine, then commits only changed rows in a cloud transaction guarded by revision and epoch. Original FIFO rowids are retained. Every write includes its durable idempotency receipt in that transaction. Conditional batches skip subsequent statements after any failure; commit is never sent after a failed write chunk. Cloud credentials are unavailable to the LLM and frontend status responses. All installations have equal full database access, as requested; the private read/write key must remain private.
+
+Connection controls are in Settings only. The regular workspace retains clear connection-failure/stale-data notices. Import/restore uploads a validated .db backup and REPLACES the shared online records for all connected devices after explicit confirmation; it does not merge. The source file remains unchanged. A pre-restore recovery backup is saved, and the new epoch invalidates old pending requests.
+
+For normal refresh, only the small cloud revision/epoch state is read when unchanged. After restart, a local backup may supply the complete snapshot only AFTER the cloud confirms the matching revision/epoch, and after its endpoint, checksum, schema and metadata are verified. Corrupt/mismatched caches trigger a fresh cloud read. Failed authentication/connectivity never grants access through a local writable fallback. Search/report/AI inputs remain complete. Automatic backups retain 64 recent versions and daily snapshots for 30 days; only owned UUID-named automatic files are rotated, never manual/recovery copies. Online mutations use Turso's clock normalized to Oman (+04:00); reporting month selection follows Asia/Muscat.
+
+The user supplied a test token in chat. It was saved in Windows Credential Manager, not source/configuration/logs/installers. Rotate that token before live customer use, then enter its replacement in Settings. Do not copy the chat token into GitHub secrets or public files. The public test endpoint in opt-in tests is not a credential.
 
 Official sources:
 
@@ -36,18 +44,18 @@ Official sources:
 
 ## Validation and unfinished release gates
 
-Verified locally: 77 desktop backend tests passed (2 ignored hardware/model cases), 46 server/domain/HTTP integration tests passed, 25 frontend tests passed, and the TypeScript/Vite production build passed. Intel Mac and live Turso testing have not been performed.
+Verified locally: 78 desktop backend tests passed (2 ignored hardware/model cases), the existing server/domain/HTTP tests passed, 25 frontend tests and TypeScript/Vite production build passed. Three opt-in live Turso scenarios passed, plus an extended live cache/restart/corruption scenario. The actual Windows desktop build launched against Turso, displayed an empty dashboard and zero-price Warranty dialog, created a verified backup, and showed connection controls only inside Settings without revealing the key. Intel Mac checks are configured separately; no physical customer Mac testing is claimed.
 
 Local test logs are ignored development artifacts (`server-test.log`, `native-test.log`, `frontend-test.log`, `frontend-build.log`). Backend tests cover warranty financial examples, replacement chains, portable backups, competing final-unit sales, lost-response replay and restore invalidation. A Windows integration test starts the real HTTP service and two actual desktop gateways, verifies OS-stored credentials and shared data, then checks disconnection behavior. It deletes only its own test credentials and terminates only its owned child process.
 
 Still required before customer delivery:
 
-1. Confirm Turso account and engine availability; verify compatibility on a separate empty/test database.
-2. Implement and test the Turso adapter and its hosting model, including atomic concurrent writes and idempotency on the authoritative remote database.
-3. Complete and test backup retention, monitoring and independent server/cloud recovery for the selected deployment.
-4. Native Intel Mac build and integration tests, including Keychain behavior.
-5. UI acceptance tests for connection configuration, stale data and warranty; native installed tests on both OSes.
-6. Fresh actual customer backup, validated migration and business-total reconciliation.
-7. Matching production installers provisioned for the selected online service. The source version 2.1.0 identifies this development work; no 2.1.0 production release is claimed.
+1. Native Intel Mac build and integration checks, including Keychain behavior; CI platform checks are configured without cloud credentials.
+2. Final installed update tests on both OSes and production packaging with the unchanged offline AI/voice resources.
+3. Fresh actual customer backup and owner-triggered migration with business-total reconciliation. No customer records have been uploaded by the connection tests.
+4. Rotate the shared-in-chat token before customer rollout and configure installations through Settings.
+5. Monitor provider quotas and local backup recency, and document provider-side recovery limits. The free provider's retention is separate from desktop backup retention.
+
+This remains unreleased development version 2.1.0. No final Windows/Mac installer is claimed yet. The existing release/default branches and installers remain unchanged.
 
 The old stable local-only version remains usable separately. After an eventual online cutover, do not record new business transactions in both the old offline version and online version.

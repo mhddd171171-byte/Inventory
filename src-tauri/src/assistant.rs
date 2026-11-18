@@ -236,7 +236,7 @@ impl Assistant {
         let state=if disabled && self.user_disabled.load(Ordering::Acquire) {"disabled"} else {self.state};
         let ready=self.ready && !disabled;
         let running=self.running && !disabled;
-        json!({"configured":self.server_path.is_some(),"running":running,"ready":ready,"state":state,"message":self.message,"enabled":self.allowed.load(Ordering::Acquire),"macos_controls":cfg!(target_os="macos"),"retry_available":self.manual_retry && matches!(state,"failed"|"timed_out"),"startup_timeout_seconds":self.startup_timeout.as_secs(),"attempts":self.failures,"retry_in_seconds":self.retry_at.saturating_duration_since(Instant::now()).as_secs(),"voice":v,"voice_configured":v["configured"],"voice_ready":v["ready"],"voice_message":v["message"]})
+        json!({"configured":self.server_path.is_some(),"running":running,"ready":ready,"state":state,"message":self.message,"enabled":self.allowed.load(Ordering::Acquire),"macos_controls":true,"retry_available":self.manual_retry && matches!(state,"failed"|"timed_out"),"startup_timeout_seconds":self.startup_timeout.as_secs(),"attempts":self.failures,"retry_in_seconds":self.retry_at.saturating_duration_since(Instant::now()).as_secs(),"voice":v,"voice_configured":v["configured"],"voice_ready":v["ready"],"voice_message":v["message"]})
     }
     /// Background manager tick. Health calls take at most 200ms, once per second.
     pub fn tick(&mut self) -> Value {

@@ -1,6 +1,7 @@
 //! Single-user SQLite persistence with an immutable FIFO ledger and validated domain operations.
 mod corrections;
 mod online;
+pub use online::ONLINE_TABLES;
 mod dispositions;
 #[cfg(test)] mod disposition_tests;
 mod deletions;
@@ -100,7 +101,7 @@ fn optional_text(payload:&Value,key:&str,max:usize)->Result<String,String>{let v
 fn required_text(payload:&Value,key:&str,max:usize)->Result<String,String>{let v=optional_text(payload,key,max)?;if v.is_empty(){Err(format!("{} is required.",key.replace('_'," ")))}else{Ok(v)}}
 fn integer(payload:&Value,key:&str,min:i64,max:i64)->Result<i64,String>{let v=payload.get(key).and_then(Value::as_i64).ok_or_else(||format!("{} must be a whole number.",key.replace('_'," ")))?;if !(min..=max).contains(&v){return Err(format!("{} must be between {min} and {max}.",key.replace('_'," ")));}Ok(v)}
 // Persist local date/offset: monthly reports follow the repair center's calendar.
-fn now()->String{Local::now().to_rfc3339_opts(SecondsFormat::Millis,false)}
+fn now()->String{online::clock().unwrap_or_else(||Local::now().to_rfc3339_opts(SecondsFormat::Millis,false))}
 fn db_error(e:rusqlite::Error)->String{let s=e.to_string();if s.contains("UNIQUE constraint failed: products.item_code"){"This Item Code already belongs to another product.".into()}else{s}}
 fn version(conn:&Connection)->Result<i64,String>{conn.pragma_query_value(None,"user_version",|r|r.get(0)).map_err(db_error)}
 fn configure(conn:&Connection)->Result<(),String>{conn.busy_timeout(Duration::from_secs(5)).map_err(db_error)?;conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA trusted_schema=OFF; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;").map_err(db_error)}
