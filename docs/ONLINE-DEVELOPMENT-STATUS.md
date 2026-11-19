@@ -75,3 +75,9 @@ Pending writes retain their request identifier after an uncertain response; disc
 Packaging verification caught Git line-ending normalization of two byte-pinned voice metadata files. Exact asset encodings are now preserved, and resource staging repairs any metadata mismatch from the hash-verified baseline. The corrected Intel build passed. Windows resource checks also verified all 16 voice manifest entries before repackaging. Models and voice behavior were not changed.
 
 For direct Turso connections, application recovery snapshots are local files in the desktop backup folder. Provider-side retention is separate and is not an application-managed remote backup service; keep an additional copy on another disk.
+
+## Connection schema formatting repair
+
+After a valid token was entered, the live connection exposed whitespace-only reformatting of `product_no_delete` and `entry_no_delete`. The strict schema validator correctly stopped before changing business records. A read-only comparison found the same 31 objects and identical SQL tokens/rules; only indentation and spacing differed in those two triggers.
+
+A complete local recovery copy passed the existing application's full schema, relationship, FIFO and financial validation. The two guards were then recreated in canonical formatting inside one write transaction, with the original schema and every table's rows rechecked against the recovery snapshot before applying anything. Every business and metadata row was compared again before committing; no rows changed. A subsequent read-only check found all 31 objects matching exactly. Current Windows and Intel Mac installers require no rebuild for this server-side formatting repair. Users can retry Connect and save. The schema validator and guard behavior remain unchanged.

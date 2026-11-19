@@ -8,6 +8,8 @@ use serde_json::{json,Value};
 const URL:&str="libsql://inventory-test-mhdddforai.aws-ap-south-1.turso.io";
 fn connection(path:&std::path::Path)->turso::Turso{let token=keyring::Entry::new("com.repaircenter.inventorymanager.online","turso-test-development").unwrap().get_password().expect("Development credential unavailable; do not print or paste it in logs.");turso::Turso::new(URL,token,path).unwrap()}
 fn good<T>(result:std::result::Result<T,turso::Failure>)->T{result.unwrap_or_else(|e|panic!("{}",e.message))}
+#[test] #[ignore="Validates a private local recovery copy only; no cloud writes"]
+fn validate_local_schema_recovery_backup(){let path=std::path::PathBuf::from(std::env::var_os("INVENTORY_SCHEMA_RECOVERY_BACKUP").expect("Set the private recovery-copy path"));store::Store::validate_backup(&path).unwrap();println!("Recovery copy passed the application's full schema, relationship, FIFO and financial validation.");}
 #[test] #[ignore="Read-only metadata timing; does not create, edit or restore any business record"]
 fn live_readonly_connection_pool_timing(){
  let d=tempfile::tempdir().unwrap();let token=keyring::Entry::new("com.repaircenter.inventorymanager.online","turso-test-development").unwrap().get_password().unwrap();
