@@ -2,7 +2,7 @@
 
 19 November 2026 — work in progress on `feature/shared-online-inventory`.
 
-This is not a customer release. Existing 2.0.11 installers, release branches and customer databases are unchanged. No online account, paid resource, production endpoint or customer-data migration has been created.
+This is not yet a customer release. Existing 2.0.11 installers and release branches are unchanged. The owner-created Turso test endpoint is connected; no paid resource or automated customer-data migration has been created. The owner is now testing business records there: do not run destructive live fixtures or reset that database.
 
 ## Implemented development baseline
 
@@ -62,4 +62,12 @@ This remains unreleased development version 2.1.0. No final Windows/Mac installe
 
 The old stable local-only version remains usable separately. After an eventual online cutover, do not record new business transactions in both the old offline version and online version.
 
-Latest review also preserves pre-correction/deletion/warranty recovery snapshots outside temporary staging and verifies original-CR warranty profit in both conversational answers and workspace search without attributing the paid sale revenue to the replacement CR. Windows platform CI passed on commit 1c89470; the initial Mac CI attempt exposed missing test resource directories, which are explicitly staged for unit tests in the corrected workflow. This is not an installer build or a claim of physical Mac verification.
+Latest review also preserves pre-correction/deletion/warranty recovery snapshots outside temporary staging and verifies original-CR warranty profit in both conversational answers and workspace search without attributing the paid sale revenue to the replacement CR. Windows and Intel Mac platform CI passed on commit 9ff54a8. A dedicated Intel installer workflow reuses hash-pinned, previously verified offline resources and checks the mounted package and installed app; packaging results must be checked before customer delivery.
+
+## Save latency optimization
+
+The cloud remains authoritative: a local-first success acknowledgement would allow competing computers to oversell stock. Saves now reuse the pooled HTTPS client, validate a checksum-verified cached snapshot against a small cloud revision/clock query, calculate the row delta locally, and publish it with an atomic revision/epoch guard and durable receipt. A normal warm save uses one metadata request and one guarded publish request. The UI and automatic backup are generated from the validated working state only after cloud confirmation, eliminating the redundant full download and immediate refresh request. Other-device changes invalidate the cache; complete search/report data is retained.
+
+Read-only measurements against the actual Mumbai endpoint found roughly 0.8 seconds for a new connection and 0.2 seconds for a reused connection; these are metadata timings, not a promise of total save latency. Four isolated protocol tests cover a single atomic publish without readback, competing cached sales, rollback on a mid-batch failure and replay after a lost commit response. All passed. The revision-guard SQL was checked against the live server with EXPLAIN only, and the optimized Windows desktop loaded a current verified snapshot and backup without modifying records. No new write benchmark has been run on the owner's now-active database.
+
+Pending writes retain their request identifier after an uncertain response; disconnected saves do not become an offline queue of authoritative stock changes. A failed local backup warns without falsely reporting that a confirmed cloud commit failed, and background refresh retries backup creation with a bounded interval.

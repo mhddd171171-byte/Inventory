@@ -8,6 +8,15 @@ use serde_json::{json,Value};
 const URL:&str="libsql://inventory-test-mhdddforai.aws-ap-south-1.turso.io";
 fn connection(path:&std::path::Path)->turso::Turso{let token=keyring::Entry::new("com.repaircenter.inventorymanager.online","turso-test-development").unwrap().get_password().expect("Development credential unavailable; do not print or paste it in logs.");turso::Turso::new(URL,token,path).unwrap()}
 fn good<T>(result:std::result::Result<T,turso::Failure>)->T{result.unwrap_or_else(|e|panic!("{}",e.message))}
+#[test] #[ignore="Read-only metadata timing; does not create, edit or restore any business record"]
+fn live_readonly_connection_pool_timing(){
+ let d=tempfile::tempdir().unwrap();let token=keyring::Entry::new("com.repaircenter.inventorymanager.online","turso-test-development").unwrap().get_password().unwrap();
+ let mut fresh=Vec::new();for _ in 0..3{let client=turso::Turso::new(URL,token.clone(),d.path()).unwrap();let start=std::time::Instant::now();good(client.state());fresh.push(start.elapsed().as_millis());}
+ let shared=reqwest::blocking::Client::builder().timeout(std::time::Duration::from_secs(20)).build().unwrap();let mut pooled=Vec::new();for _ in 0..3{let client=turso::Turso::with_client(URL,token.clone(),d.path(),shared.clone()).unwrap();let start=std::time::Instant::now();good(client.state());pooled.push(start.elapsed().as_millis());}
+ println!("{}",json!({"business_records_changed":false,"fresh_connection_ms":fresh,"shared_connection_ms":pooled}));
+}
+#[test] #[ignore="Only compiles EXPLAIN bytecode; does not execute an INSERT or modify any record"]
+fn live_readonly_revision_guard_sql_is_supported(){let d=tempfile::tempdir().unwrap();let c=connection(d.path());assert!(good(c.explain_revision_guard())>0);println!("Cloud revision guard compiled with EXPLAIN only; no business records or metadata changed.");}
 #[test] #[ignore="Requires explicit authorization and the test database credential in the OS store"]
 fn live_turso_connect_snapshot_and_portable_backup(){
  let d=tempfile::tempdir().unwrap();let c=connection(d.path());let state=c.initialize().unwrap();assert!(state["epoch"].is_string());
@@ -18,6 +27,7 @@ fn live_turso_connect_snapshot_and_portable_backup(){
 
 #[test] #[ignore="Writes disposable records to inventory-test, then restores its verified empty baseline"]
 fn live_turso_warranty_replay_concurrency_and_restore(){
+ assert_eq!(std::env::var("INVENTORY_DESTRUCTIVE_TURSO_TESTS").as_deref(),Ok("EMPTY-DISPOSABLE-DATABASE-ONLY"),"The shared database is now in use. Run writes only against an explicitly isolated disposable database.");
  let directory=std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.build/turso-live-validation");std::fs::create_dir_all(&directory).unwrap();let c=connection(&directory);c.initialize().unwrap();
  let baseline=directory.join(format!("before-live-test-{}.db",uuid::Uuid::new_v4()));let initial=good(c.snapshot(json!({})));assert_eq!(initial["result"]["summary"]["total_products"],0,"Only run against the empty test database");good(c.backup(&baseline));
  let run=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||{
@@ -43,6 +53,7 @@ fn live_turso_warranty_replay_concurrency_and_restore(){
 
 #[test] #[ignore="Tests two real desktop gateways against the empty Turso test DB, then removes test records"]
 fn live_two_desktop_gateways_refresh_and_backup(){
+ assert_eq!(std::env::var("INVENTORY_DESTRUCTIVE_TURSO_TESTS").as_deref(),Ok("EMPTY-DISPOSABLE-DATABASE-ONLY"),"The shared database is now in use. Run writes only against an explicitly isolated disposable database.");
  let directory=std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.build/turso-desktop-validation");std::fs::create_dir_all(&directory).unwrap();let c=connection(&directory);c.initialize().unwrap();let before=good(c.snapshot(json!({})));assert_eq!(before["result"]["summary"]["total_products"],0);let baseline=directory.join(format!("before-{}.db",uuid::Uuid::new_v4()));good(c.backup(&baseline));
  let run=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||{
   let mut clients=Vec::new();for name in ["device-a","device-b"]{let path=directory.join(name);std::fs::create_dir_all(&path).unwrap();std::fs::write(path.join("online-connection.json"),json!({"url":URL,"credential_id":"turso-test-development"}).to_string()).unwrap();let mut client=gateway::Gateway::open(&path,&path.join("backups")).unwrap();let snapshot=client.execute("snapshot",json!({})).unwrap();assert_eq!(snapshot["summary"]["total_products"],0);clients.push(client);}

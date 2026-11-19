@@ -5,10 +5,13 @@
 #ifndef WebViewInstaller
   #error WebViewInstaller must be provided
 #endif
+#ifndef ReleaseVersion
+  #error ReleaseVersion must be provided
+#endif
 [Setup]
 AppId=com.repaircenter.inventorymanager
 AppName=Inventory Manager
-AppVersion=2.0.10
+AppVersion={#ReleaseVersion}
 AppPublisher=Al Mohtarif Repair Center
 DefaultDirName={localappdata}\Programs\Inventory Manager
 DefaultGroupName=Inventory Manager
@@ -18,7 +21,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#RepoRoot}\deliverables
-OutputBaseFilename=Inventory Manager_2.0.10_x64-setup
+OutputBaseFilename=Inventory Manager_{#ReleaseVersion}_x64-setup
 SetupIconFile={#RepoRoot}\src-tauri\icons\icon.ico
 UninstallDisplayIcon={app}\inventory-manager.exe
 Compression=zip

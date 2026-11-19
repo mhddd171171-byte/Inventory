@@ -8,6 +8,7 @@ use sha2::{Digest,Sha256};
 use std::{collections::BTreeMap,io::{Read,Write},path::{Path,PathBuf},time::Duration};
 use uuid::Uuid;
 
+pub struct VerifiedSeed {pub path:PathBuf,pub state:Value,pub timestamp:String}
 pub struct Turso {client:Client,url:String,token:String,directory:PathBuf,recovery:PathBuf}
 pub struct Failure {pub message:String,pub definitive:bool}
 type Result<T>=std::result::Result<T,Failure>;
@@ -21,10 +22,13 @@ fn endpoint(url:&str)->std::result::Result<String,String>{
 }
 impl Turso {
  pub fn new(url:&str,token:String,directory:&Path)->std::result::Result<Self,String>{
-  let url=endpoint(url)?;let client=Client::builder().connect_timeout(Duration::from_secs(5)).timeout(Duration::from_secs(25)).redirect(Policy::none()).build().map_err(|e|e.to_string())?;
-  Ok(Self{client,url,token,directory:directory.into(),recovery:directory.join("recovery-backups")})
+  let client=Client::builder().connect_timeout(Duration::from_secs(5)).timeout(Duration::from_secs(25)).redirect(Policy::none()).build().map_err(|e|e.to_string())?;
+  Self::with_client(url,token,directory,client)
  }
+ pub fn with_client(url:&str,token:String,directory:&Path,client:Client)->std::result::Result<Self,String>{Ok(Self{client,url:endpoint(url)?,token,directory:directory.into(),recovery:directory.join("recovery-backups")})}
+ #[cfg(test)] pub fn test_connection(url:String,directory:&Path)->Self{Self{client:Client::builder().timeout(Duration::from_secs(10)).build().unwrap(),url,token:"test-only".into(),directory:directory.into(),recovery:directory.join("recovery-backups")}}
  pub fn recovery_directory(mut self,path:&Path)->Self{self.recovery=path.into();self}
+ #[cfg(test)] pub fn explain_revision_guard(&self)->Result<usize>{let mut session=self.session();let results=session.batch(vec![stmt(&format!("EXPLAIN {REVISION_GUARD}"),vec![text("explain-only"),text("0")])],true)?;Ok(results[0]["rows"].as_array().ok_or_else(||unavailable("Invalid query plan."))?.len())}
  fn session(&self)->Session<'_>{Session{owner:self,url:self.url.clone(),baton:None}}
  fn temporary(&self)->Result<tempfile::TempDir>{tempfile::tempdir_in(&self.directory).map_err(|_|unavailable("Cannot create private inventory staging storage."))}
  pub fn initialize(&self)->std::result::Result<Value,String>{
@@ -34,7 +38,12 @@ impl Turso {
   let epoch=Uuid::new_v4().to_string();let mut session=self.session();session.batch(vec![stmt("BEGIN IMMEDIATE",vec![]),stmt("INSERT OR IGNORE INTO migration_info(key,value) VALUES('online_epoch',?)",vec![text(&epoch)]),stmt("INSERT OR IGNORE INTO migration_info(key,value) VALUES('online_revision','0')",vec![]),stmt("INSERT OR IGNORE INTO migration_info(key,value) VALUES('online_schema_version','3')",vec![]),stmt("COMMIT",vec![])],true).map_err(|e|e.message)?;
   self.state().map_err(|e|e.message)
  }
- pub fn state(&self)->Result<Value>{let mut session=self.session();let result=session.batch(vec![state_stmt()],true)?;state(&result[0])}
+ pub fn state(&self)->Result<Value>{self.state_and_clock().map(|(state,_)|state)}
+ pub fn state_and_clock(&self)->Result<(Value,String)>{let mut session=self.session();let result=session.batch(vec![state_stmt()],true)?;let stamp=result[0]["rows"][0][2]["value"].as_str().ok_or_else(||unavailable("Database clock unavailable."))?.to_string();Ok((state(&result[0])?,stamp))}
+ fn seeded_mirror(&self,seed:Option<VerifiedSeed>)->Result<(tempfile::TempDir,Store,Value,String)>{
+  if let Some(seed)=seed {let temp=self.temporary()?;let path=temp.path().join("working.db");let candidate:std::result::Result<(Store,Value),String>=(||{let mut working=Store::open(&path)?;working.online_publish(&seed.path)?;if working.online_metadata()?!=seed.state{return Err("Stale local cache".into());}let dump=working.online_dump()?;Ok((working,dump))})();if let Ok((working,dump))=candidate{return Ok((temp,working,dump,seed.timestamp));}}
+  self.mirror()
+ }
  fn mirror(&self)->Result<(tempfile::TempDir,Store,Value,String)>{
   let temp=self.temporary()?;let mut store=Store::open(&temp.path().join("working.db")).map_err(rejected)?;
   let mut statements=vec![stmt("BEGIN",vec![]),stmt("SELECT type,name,COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name",vec![])];
@@ -44,14 +53,16 @@ impl Turso {
   let mut tables=Vec::new();for (i,name)in ONLINE_TABLES.iter().enumerate(){let r=&results[i+2];let columns=r["cols"].as_array().ok_or_else(||unavailable("Invalid cloud columns."))?.iter().map(|c|c["name"].clone()).collect::<Vec<_>>();tables.push(json!({"name":name,"columns":columns,"rows":r["rows"]}));}
   let dump=json!(tables);store.online_import(&dump).map_err(rejected)?;let time=results[11]["rows"][0][0]["value"].as_str().ok_or_else(||unavailable("Database clock unavailable."))?.to_string();Ok((temp,store,dump,time))
  }
- pub fn snapshot(&self,payload:Value)->Result<Value>{let (_temp,mut store,_,_)=self.mirror()?;let result=store.execute("snapshot",payload).map_err(rejected)?;Ok(json!({"result":result,"state":store.online_metadata().map_err(rejected)?}))}
- pub fn mutate(&self,request:&Value)->Result<Value>{
+ pub fn snapshot(&self,payload:Value)->Result<Value>{self.snapshot_observe(payload,|_,_|{})}
+ pub fn snapshot_observe(&self,mut payload:Value,mut confirmed:impl FnMut(&Store,&str))->Result<Value>{let (_temp,mut store,_,timestamp)=self.mirror()?;if payload["month"].is_null(){payload["month"]=json!(&timestamp[..7]);}let result=store.execute("snapshot",payload).map_err(rejected)?;confirmed(&store,&timestamp);Ok(json!({"result":result,"state":store.online_metadata().map_err(rejected)?}))}
+ pub fn mutate(&self,request:&Value)->Result<Value>{self.mutate_observe(request,None,|_,_|{})}
+ pub fn mutate_observe(&self,request:&Value,seed:Option<VerifiedSeed>,mut confirmed:impl FnMut(&Store,&str))->Result<Value>{
   let action=request["action"].as_str().ok_or_else(||rejected("Missing operation.".into()))?;
   if !["save_product","stock_entry","stock_out","edit_record","delete_record","damaged_return","warranty"].contains(&action){return Err(rejected("Operation is not permitted.".into()));}
   let id=request["operation_id"].as_str().ok_or_else(||rejected("Missing operation identifier.".into()))?;Uuid::parse_str(id).map_err(|_|rejected("Invalid operation identifier.".into()))?;
   let fingerprint=format!("{:x}",Sha256::digest(json!({"action":action,"payload":request["payload"],"epoch":request["epoch"],"expected_revision":request["expected_revision"]}).to_string().as_bytes()));
-  let (_temp,mut working,before,timestamp)=self.mirror()?;
-  if let Some(receipt)=working.online_receipt(id).map_err(rejected)?{return receipt_result(&receipt,&fingerprint);}
+  let (_temp,mut working,before,timestamp)=self.seeded_mirror(seed)?;
+  if let Some(receipt)=working.online_receipt(id).map_err(rejected)?{let response=receipt_result(&receipt,&fingerprint)?;confirmed(&working,&timestamp);return Ok(response);}
   let expected=working.online_metadata().map_err(rejected)?;
   if request["epoch"]!=expected["epoch"]||request["expected_revision"]!=expected["revision"]{return Err(rejected("Inventory changed on another device. Refresh and review before saving.".into()));}
   let revision=expected["revision"].as_u64().and_then(|n|n.checked_add(1)).filter(|n|*n<=9_007_199_254_740_991).ok_or_else(||rejected("Invalid database revision.".into()))?;
@@ -67,15 +78,14 @@ impl Turso {
   let response=json!({"result":result,"state":{"epoch":expected["epoch"],"revision":revision}});working.online_record(id,&fingerprint,&response,revision).map_err(rejected)?;
   let after=working.online_dump().map_err(rejected)?;
   match self.publish(&before,&after,&expected){
-   Ok(())=>Ok(response),
-   Err(error)if error.definitive=>{let (_temp,check,_,_)=self.mirror()?;if let Some(receipt)=check.online_receipt(id).map_err(rejected)?{return receipt_result(&receipt,&fingerprint);}Err(error)},
+   Ok(())=>{confirmed(&working,&timestamp);Ok(response)},
+   Err(error)if error.definitive=>{let (_temp,check,_,time)=self.mirror()?;if let Some(receipt)=check.online_receipt(id).map_err(rejected)?{let value=receipt_result(&receipt,&fingerprint)?;confirmed(&check,&time);return Ok(value);}Err(error)},
    Err(error)=>Err(error)
   }
  }
  fn publish(&self,before:&Value,after:&Value,expected:&Value)->Result<()>{
-  let mut session=self.session();let result=session.batch(vec![stmt("PRAGMA foreign_keys=ON",vec![]),stmt("BEGIN IMMEDIATE",vec![]),state_stmt()],false)?;
-  if state(&result[2])?!=*expected{return Err(rejected("Inventory changed on another device. Refresh before saving.".into()));}
-  let mut statements=vec![stmt("PRAGMA defer_foreign_keys=ON",vec![])];
+  let mut session=self.session();
+  let mut statements=vec![stmt("PRAGMA foreign_keys=ON",vec![]),stmt("BEGIN IMMEDIATE",vec![]),stmt(REVISION_GUARD,vec![text(expected["epoch"].as_str().ok_or_else(||rejected("Invalid epoch.".into()))?),text(&expected["revision"].to_string())]),stmt("PRAGMA defer_foreign_keys=ON",vec![])];
   let guards=reference_guards().map_err(rejected)?;
   for (name,_) in &guards{statements.push(stmt(&format!("DROP TRIGGER \"{name}\""),vec![]));}
   let mut inserts=Vec::new();
@@ -88,8 +98,7 @@ impl Turso {
   }
   statements.extend(inserts);for (_,sql)in guards{statements.push(stmt(&sql,vec![]));}
   // Chunks retain the same transaction. No COMMIT is sent after a failed chunk.
-  for chunk in statements.chunks(200){session.batch(chunk.to_vec(),false)?;}
-  session.batch(vec![stmt("COMMIT",vec![])],true)?;Ok(())
+  statements.push(stmt("COMMIT",vec![]));let chunks=statements.chunks(200).collect::<Vec<_>>();for (index,chunk)in chunks.iter().enumerate(){session.batch(chunk.to_vec(),index+1==chunks.len())?;}Ok(())
  }
  pub fn backup(&self,destination:&Path)->Result<Value>{let (_temp,store,_,_)=self.mirror()?;let state=store.online_metadata().map_err(rejected)?;store.backup(destination).map_err(rejected)?;Ok(json!({"path":destination,"verified":true,"state":state}))}
  pub fn restore(&self,source:&Path,expected:&Value,recovery:&Path)->Result<Value>{
@@ -99,9 +108,10 @@ impl Turso {
   let after=working.online_dump().map_err(rejected)?;self.publish(&before,&after,&current)?;Ok(json!({"result":{"restored":true,"pre_restore_backup":recovery},"state":working.online_metadata().map_err(rejected)?}))
  }
 }
+const REVISION_GUARD:&str="INSERT INTO migration_info(key,value) SELECT 'online_revision',NULL WHERE (SELECT value FROM migration_info WHERE key='online_epoch') IS NOT ?1 OR (SELECT value FROM migration_info WHERE key='online_revision') IS NOT ?2";
 fn text(s:&str)->Value{json!({"type":"text","value":s})}
 fn stmt(sql:&str,args:Vec<Value>)->Value{json!({"sql":sql,"args":args,"want_rows":true})}
-fn state_stmt()->Value{stmt("SELECT key,value FROM migration_info WHERE key IN ('online_epoch','online_revision') ORDER BY key",vec![])}
+fn state_stmt()->Value{stmt("SELECT key,value,strftime('%Y-%m-%dT%H:%M:%f+04:00','now','+4 hours') AS server_time FROM migration_info WHERE key IN ('online_epoch','online_revision') ORDER BY key",vec![])}
 fn state(result:&Value)->Result<Value>{let mut epoch=None;let mut revision=None;for row in result["rows"].as_array().ok_or_else(||unavailable("Invalid cloud state."))?{let key=row[0]["value"].as_str().unwrap_or("");let value=row[1]["value"].as_str().unwrap_or("");if key=="online_epoch"{Uuid::parse_str(value).map_err(|_|rejected("Invalid database epoch.".into()))?;epoch=Some(value.to_string());}if key=="online_revision"{revision=value.parse::<u64>().ok();}}Ok(json!({"epoch":epoch.ok_or_else(||rejected("Online database has not been initialized.".into()))?,"revision":revision.ok_or_else(||rejected("Invalid database revision.".into()))?}))}
 fn schema(result:&Value)->Result<Value>{let rows=result["rows"].as_array().ok_or_else(||unavailable("Invalid schema response."))?;Ok(json!(rows.iter().map(|r|r.as_array().unwrap().iter().map(|v|v["value"].as_str().unwrap_or("").replace("\r\n","\n")).collect::<Vec<_>>()).collect::<Vec<_>>()))}
 fn rows_by_id(table:&Value)->Result<BTreeMap<String,Value>>{let mut result=BTreeMap::new();for row in table["rows"].as_array().ok_or_else(||unavailable("Invalid cloud rows."))?{let id=row[0]["value"].as_str().ok_or_else(||unavailable("Invalid cloud row identifier."))?;id.parse::<i64>().map_err(|_|unavailable("Invalid cloud row identifier."))?;if result.insert(id.to_string(),row.clone()).is_some(){return Err(unavailable("Duplicate cloud row identifier."));}}Ok(result)}
@@ -110,6 +120,7 @@ fn reference_guards()->std::result::Result<Vec<(String,String)>,String>{let conn
 struct Session<'a>{owner:&'a Turso,url:String,baton:Option<String>}
 impl Session<'_>{
  fn batch(&mut self,statements:Vec<Value>,close:bool)->Result<Vec<Value>>{
+  let guarded=statements.get(2).is_some_and(|s|s["sql"]==REVISION_GUARD);
   let steps=statements.into_iter().enumerate().map(|(i,s)|{let mut step=json!({"stmt":s});if i>0{step["condition"]=json!({"type":"ok","step":i-1});}step}).collect::<Vec<_>>();let mut requests=vec![json!({"type":"batch","batch":{"steps":steps}})];if close{requests.push(json!({"type":"close"}));}
   let request=json!({"baton":self.baton,"requests":requests});
   if request.to_string().len()>16*1024*1024{return Err(rejected("Inventory transaction exceeds the supported request size.".into()));}
@@ -120,7 +131,7 @@ impl Session<'_>{
   self.baton=value["baton"].as_str().map(str::to_string);
   if let Some(url)=value["base_url"].as_str(){self.url=endpoint(url).map_err(rejected)?;}
   let first=&value["results"][0];if first["type"]!="ok"{return Err(unavailable("Turso could not execute the database request."));}
-  let result=&first["response"]["result"];if let Some(errors)=result["step_errors"].as_array(){if errors.iter().any(|e|!e.is_null()){return Err(unavailable("Turso could not complete the transaction. Refresh to confirm its status before changing the request."));}}
+  let result=&first["response"]["result"];if let Some(errors)=result["step_errors"].as_array(){if errors.iter().any(|e|!e.is_null()){if guarded&&errors.get(2).is_some_and(|e|!e.is_null()){return Err(rejected("Inventory changed on another device. Refresh before saving.".into()));}return Err(unavailable("Turso could not complete the transaction. Refresh to confirm its status before changing the request."));}}
   let values=result["step_results"].as_array().ok_or_else(||unavailable("Invalid Turso batch response."))?;if values.iter().any(Value::is_null){return Err(unavailable("Turso did not complete the database transaction."));}Ok(values.clone())
  }
 }

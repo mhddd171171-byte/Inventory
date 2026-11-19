@@ -1,0 +1,74 @@
+name: Intel Mac online inventory installer
+on:
+  push:
+    branches: [feature/shared-online-inventory]
+    paths: [".github/workflows/online-macos-installer.yml", "scripts/reuse-macos-offline-resources.py", "scripts/verify-online-macos-package.py", "scripts/smoke-macos-online-app.py", "scripts/publish-online-macos.py"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: online-macos-installer
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      APPLE_SIGNING_IDENTITY: '-'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Reuse verified offline Intel resources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/reuse-macos-offline-resources.py
+      - name: Native backend tests and migration backup fixture
+        run: INVENTORY_MAC_UPDATE_FIXTURE="$PWD/.build/MACOS-UPDATE-FIXTURE.db" cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+      - name: Check native credential storage in an isolated keychain
+        run: |
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/online-test.keychain-db"
+          security set-keychain-settings -lut 21600 "$RUNNER_TEMP/online-test.keychain-db"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/online-test.keychain-db"
+          security default-keychain -d user -s "$RUNNER_TEMP/online-test.keychain-db"
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --lib mac_keychain_roundtrip -- --ignored --nocapture
+      - name: Collect exact Rust redistribution notices
+        run: |
+          cargo metadata --locked --manifest-path src-tauri/Cargo.toml --format-version 1 > .build/cargo-metadata.json
+          python scripts/collect-licenses.py
+          ditto src-tauri/resources/licenses .build/macos-resources/licenses
+      - name: Build native app and DMG
+        run: npx tauri build --target x86_64-apple-darwin --bundles app,dmg
+      - name: Verify mounted and installed package
+        run: python scripts/verify-online-macos-package.py
+      - name: Publish verified DMG distribution parts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/publish-online-macos.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Intel-Mac-online-verification
+          path: |
+            .build/MACOS-ONLINE-PACKAGE.json
+            .build/MACOS-ONLINE-APP.json
+            .build/MACOS-SHA256SUMS.txt
+            .build/INSTALLER-PARTS.json
