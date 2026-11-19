@@ -7,6 +7,15 @@
 voice/catt-tokenizer.json -text
 src-tauri/resources/voice/tts/nabra/vocab.json -text
 src-tauri/resources/voice/tts/catt/tokenizer.json -text
+# Downloaded model metadata must match MODELS.json on both platforms.
+src-tauri/resources/voice/stt/config.json -text
+src-tauri/resources/voice/stt/tokenizer.json -text
+src-tauri/resources/voice/stt/vocabulary.txt -text
+src-tauri/resources/voice/stt/README.md -text
+src-tauri/resources/voice/tts/nabra/README.md -text
+src-tauri/resources/voice/tts/kokoro/vocab.json -text
+src-tauri/resources/voice/tts/kokoro/README.md -text
+src-tauri/resources/voice/tts/catt/README.md -text
 
 # Preserve exact native evidence bytes across Windows and macOS checkouts.
 tests/fixtures/macos-native-baseline/* -text
