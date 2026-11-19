@@ -2,7 +2,7 @@
 
 19 November 2026 — work in progress on `feature/shared-online-inventory`.
 
-This is not yet a customer release. Existing 2.0.11 installers and release branches are unchanged. The owner-created Turso test endpoint is connected; no paid resource or automated customer-data migration has been created. The owner is now testing business records there: do not run destructive live fixtures or reset that database.
+Matching native 2.1.0 installers are built for owner validation; the Intel DMG is published as a prerelease. Existing 2.0.11 installers and release branches are unchanged. The owner-created Turso test endpoint is connected; no paid resource or automated customer-data migration has been created. The owner is now testing business records there: do not run destructive live fixtures or reset that database.
 
 ## Implemented development baseline
 
@@ -50,15 +50,15 @@ Verified locally: 79 desktop backend tests passed (2 ignored hardware/model case
 
 Local test logs are ignored development artifacts (`server-test.log`, `native-test.log`, `frontend-test.log`, `frontend-build.log`). Backend tests cover warranty financial examples, replacement chains, portable backups, competing final-unit sales, lost-response replay and restore invalidation. A Windows integration test starts the real HTTP service and two actual desktop gateways, verifies OS-stored credentials and shared data, then checks disconnection behavior. It deletes only its own test credentials and terminates only its owned child process.
 
-Still required before customer delivery:
+Release validation results and remaining limits:
 
-1. Native Intel Mac build and integration checks, including Keychain behavior; CI platform checks are configured without cloud credentials.
-2. Final installed update tests on both OSes and production packaging with the unchanged offline AI/voice resources.
-3. Fresh actual customer backup and owner-triggered migration with business-total reconciliation. No customer records have been uploaded by the connection tests.
+1. Windows and Intel Mac platform checks passed on the performance source and corrected packaging source. The final Windows EXE installer built successfully; the native desktop was tested in an isolated profile against live Turso. This final installer has not been installed over the owner's existing application.
+2. Intel Mac build 44436766429 passed strict mounted DMG/signature/resource checks, 17 exact model checks, voice-worker initialization, installed launch, automatic local AI readiness (18.52 seconds), clean exit/owned-helper cleanup and unchanged pre-existing local database bytes. The native Keychain roundtrip also passed. Live authenticated Turso operations on Mac, the physical customer Mac and microphone/speaker quality remain untested; no completely disconnected customer walkthrough is claimed.
+3. Fresh actual customer backup and owner-triggered migration still require business-total reconciliation. No customer records have been uploaded by the connection tests. Do not restore over the owner's now-active cloud records merely to connect another installation.
 4. Rotate the shared-in-chat token before customer rollout and configure installations through Settings.
 5. Monitor provider quotas and local backup recency, and document provider-side recovery limits. The free provider's retention is separate from desktop backup retention.
 
-This remains unreleased development version 2.1.0. No final Windows/Mac installer is claimed yet. The existing release/default branches and installers remain unchanged.
+Windows installer: `Inventory Manager_2.1.0_x64-setup.exe`. Intel installer: `Inventory Manager_2.1.0_x64.dmg`. Both use the same application logic and native OS executables. The existing release/default branches and stable installers remain unchanged. Mac build: https://github.com/mhddd171171-byte/Inventory/actions/runs/44436766429 . Published DMG parts must be assembled and hash-verified into one file before customer delivery.
 
 The old stable local-only version remains usable separately. After an eventual online cutover, do not record new business transactions in both the old offline version and online version.
 
@@ -71,3 +71,7 @@ The cloud remains authoritative: a local-first success acknowledgement would all
 Read-only measurements against the actual Mumbai endpoint found roughly 0.8 seconds for a new connection and 0.2 seconds for a reused connection; these are metadata timings, not a promise of total save latency. Four isolated protocol tests cover a single atomic publish without readback, competing cached sales, rollback on a mid-batch failure and replay after a lost commit response. All passed. The revision-guard SQL was checked against the live server with EXPLAIN only, and the optimized Windows desktop loaded a current verified snapshot and backup without modifying records. No new write benchmark has been run on the owner's now-active database.
 
 Pending writes retain their request identifier after an uncertain response; disconnected saves do not become an offline queue of authoritative stock changes. A failed local backup warns without falsely reporting that a confirmed cloud commit failed, and background refresh retries backup creation with a bounded interval.
+
+Packaging verification caught Git line-ending normalization of two byte-pinned voice metadata files. Exact asset encodings are now preserved, and resource staging repairs any metadata mismatch from the hash-verified baseline. The corrected Intel build passed. Windows resource checks also verified all 16 voice manifest entries before repackaging. Models and voice behavior were not changed.
+
+For direct Turso connections, application recovery snapshots are local files in the desktop backup folder. Provider-side retention is separate and is not an application-managed remote backup service; keep an additional copy on another disk.
