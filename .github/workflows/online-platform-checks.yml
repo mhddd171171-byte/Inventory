@@ -27,12 +27,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
+          cache-on-failure: true
           workspaces: |
             src-tauri
             server
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Prepare macOS unit-test resource paths
+        if: runner.os == 'macOS'
+        run: mkdir -p .build/macos-resources/{ai,voice,licenses}
       - name: Native desktop backend tests
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
       - name: Shared domain and HTTP gateway tests

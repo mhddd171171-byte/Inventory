@@ -46,7 +46,7 @@ Official sources:
 
 ## Validation and unfinished release gates
 
-Verified locally: 78 desktop backend tests passed (2 ignored hardware/model cases), the existing server/domain/HTTP tests passed, 25 frontend tests and TypeScript/Vite production build passed. Three opt-in live Turso scenarios passed, plus an extended live cache/restart/corruption scenario. The actual Windows desktop build launched against Turso, displayed an empty dashboard and zero-price Warranty dialog, created a verified backup, and showed connection controls only inside Settings without revealing the key. Intel Mac checks are configured separately; no physical customer Mac testing is claimed.
+Verified locally: 79 desktop backend tests passed (2 ignored hardware/model cases), the existing server/domain/HTTP tests passed, 26 frontend tests and TypeScript/Vite production build passed. Three opt-in live Turso scenarios passed, plus an extended live cache/restart/corruption scenario. The actual Windows desktop build launched against Turso, displayed an empty dashboard and zero-price Warranty dialog, created a verified backup, and showed connection controls only inside Settings without revealing the key. Intel Mac checks are configured separately; no physical customer Mac testing is claimed.
 
 Local test logs are ignored development artifacts (`server-test.log`, `native-test.log`, `frontend-test.log`, `frontend-build.log`). Backend tests cover warranty financial examples, replacement chains, portable backups, competing final-unit sales, lost-response replay and restore invalidation. A Windows integration test starts the real HTTP service and two actual desktop gateways, verifies OS-stored credentials and shared data, then checks disconnection behavior. It deletes only its own test credentials and terminates only its owned child process.
 
@@ -61,3 +61,5 @@ Still required before customer delivery:
 This remains unreleased development version 2.1.0. No final Windows/Mac installer is claimed yet. The existing release/default branches and installers remain unchanged.
 
 The old stable local-only version remains usable separately. After an eventual online cutover, do not record new business transactions in both the old offline version and online version.
+
+Latest review also preserves pre-correction/deletion/warranty recovery snapshots outside temporary staging and verifies original-CR warranty profit in both conversational answers and workspace search without attributing the paid sale revenue to the replacement CR. Windows platform CI passed on commit 1c89470; the initial Mac CI attempt exposed missing test resource directories, which are explicitly staged for unit tests in the corrected workflow. This is not an installer build or a claim of physical Mac verification.

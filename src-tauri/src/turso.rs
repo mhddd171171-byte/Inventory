@@ -5,10 +5,10 @@ use crate::store::{Store,ONLINE_TABLES};
 use reqwest::{blocking::Client,redirect::Policy,Url};
 use serde_json::{json,Value};
 use sha2::{Digest,Sha256};
-use std::{collections::BTreeMap,io::Read,path::{Path,PathBuf},time::Duration};
+use std::{collections::BTreeMap,io::{Read,Write},path::{Path,PathBuf},time::Duration};
 use uuid::Uuid;
 
-pub struct Turso {client:Client,url:String,token:String,directory:PathBuf}
+pub struct Turso {client:Client,url:String,token:String,directory:PathBuf,recovery:PathBuf}
 pub struct Failure {pub message:String,pub definitive:bool}
 type Result<T>=std::result::Result<T,Failure>;
 fn unavailable(message:&str)->Failure{Failure{message:message.into(),definitive:false}}
@@ -22,8 +22,9 @@ fn endpoint(url:&str)->std::result::Result<String,String>{
 impl Turso {
  pub fn new(url:&str,token:String,directory:&Path)->std::result::Result<Self,String>{
   let url=endpoint(url)?;let client=Client::builder().connect_timeout(Duration::from_secs(5)).timeout(Duration::from_secs(25)).redirect(Policy::none()).build().map_err(|e|e.to_string())?;
-  Ok(Self{client,url,token,directory:directory.into()})
+  Ok(Self{client,url,token,directory:directory.into(),recovery:directory.join("recovery-backups")})
  }
+ pub fn recovery_directory(mut self,path:&Path)->Self{self.recovery=path.into();self}
  fn session(&self)->Session<'_>{Session{owner:self,url:self.url.clone(),baton:None}}
  fn temporary(&self)->Result<tempfile::TempDir>{tempfile::tempdir_in(&self.directory).map_err(|_|unavailable("Cannot create private inventory staging storage."))}
  pub fn initialize(&self)->std::result::Result<Value,String>{
@@ -54,10 +55,22 @@ impl Turso {
   let expected=working.online_metadata().map_err(rejected)?;
   if request["epoch"]!=expected["epoch"]||request["expected_revision"]!=expected["revision"]{return Err(rejected("Inventory changed on another device. Refresh and review before saving.".into()));}
   let revision=expected["revision"].as_u64().and_then(|n|n.checked_add(1)).filter(|n|*n<=9_007_199_254_740_991).ok_or_else(||rejected("Invalid database revision.".into()))?;
-  let mut result=working.execute_online_at(action,request["payload"].clone(),&timestamp).map_err(rejected)?;if let Some(o)=result.as_object_mut(){o.remove("pre_edit_backup");o.remove("pre_delete_backup");}
+  let mut result=working.execute_online_at(action,request["payload"].clone(),&timestamp).map_err(rejected)?;
+  let recovery=result["pre_edit_backup"].as_str().or_else(||result["pre_delete_backup"].as_str()).map(str::to_string);
+  if let Some(source)=recovery{
+   let source=PathBuf::from(source);if source.parent()!=Some(_temp.path()){return Err(rejected("Unexpected recovery snapshot path.".into()));}
+   Store::validate_backup(&source).map_err(rejected)?;std::fs::create_dir_all(&self.recovery).map_err(|_|rejected("Cannot preserve a recovery backup. No online records were changed.".into()))?;
+   let path=self.recovery.join(format!("before-{action}-{}.db",Uuid::new_v4()));let mut target=std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|_|rejected("Cannot create a recovery backup. No online records were changed.".into()))?;
+   let bytes=std::fs::read(source).map_err(|_|rejected("Cannot read the recovery snapshot.".into()))?;target.write_all(&bytes).and_then(|_|target.sync_all()).map_err(|_|rejected("Recovery backup could not be completed. No online records were changed.".into()))?;result["recovery_backup_saved"]=json!(true);
+  }
+  if let Some(o)=result.as_object_mut(){o.remove("pre_edit_backup");o.remove("pre_delete_backup");}
   let response=json!({"result":result,"state":{"epoch":expected["epoch"],"revision":revision}});working.online_record(id,&fingerprint,&response,revision).map_err(rejected)?;
   let after=working.online_dump().map_err(rejected)?;
-  self.publish(&before,&after,&expected)?;Ok(response)
+  match self.publish(&before,&after,&expected){
+   Ok(())=>Ok(response),
+   Err(error)if error.definitive=>{let (_temp,check,_,_)=self.mirror()?;if let Some(receipt)=check.online_receipt(id).map_err(rejected)?{return receipt_result(&receipt,&fingerprint);}Err(error)},
+   Err(error)=>Err(error)
+  }
  }
  fn publish(&self,before:&Value,after:&Value,expected:&Value)->Result<()>{
   let mut session=self.session();let result=session.batch(vec![stmt("PRAGMA foreign_keys=ON",vec![]),stmt("BEGIN IMMEDIATE",vec![]),state_stmt()],false)?;
@@ -107,7 +120,7 @@ impl Session<'_>{
   self.baton=value["baton"].as_str().map(str::to_string);
   if let Some(url)=value["base_url"].as_str(){self.url=endpoint(url).map_err(rejected)?;}
   let first=&value["results"][0];if first["type"]!="ok"{return Err(unavailable("Turso could not execute the database request."));}
-  let result=&first["response"]["result"];if let Some(errors)=result["step_errors"].as_array(){if errors.iter().any(|e|!e.is_null()){return Err(rejected("Turso rejected the database transaction; its changes were rolled back.".into()));}}
+  let result=&first["response"]["result"];if let Some(errors)=result["step_errors"].as_array(){if errors.iter().any(|e|!e.is_null()){return Err(unavailable("Turso could not complete the transaction. Refresh to confirm its status before changing the request."));}}
   let values=result["step_results"].as_array().ok_or_else(||unavailable("Invalid Turso batch response."))?;if values.iter().any(Value::is_null){return Err(unavailable("Turso did not complete the database transaction."));}Ok(values.clone())
  }
 }

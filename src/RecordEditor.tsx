@@ -19,7 +19,7 @@ export default function RecordEditor({target,products,saved,close}:{target:EditT
  const [confirmDelete,setConfirmDelete]=useState(false);
  async function remove(){
   setBusy(true);setError('');
-  try{const response=await call<{pre_delete_backup:string}>('delete_record',{_online_state:record._online_state,kind,id:record.id,password,confirmed:true});setPassword('');await saved();setResult(`Record deleted. Server recovery backup preserved${response.pre_delete_backup?`: ${response.pre_delete_backup}`:""}`);setConfirmDelete(false);}
+  try{const response=await call<{pre_delete_backup:string}>('delete_record',{_online_state:record._online_state,kind,id:record.id,password,confirmed:true});setPassword('');await saved();setResult(`Record deleted. Recovery backup preserved${response.pre_delete_backup?`: ${response.pre_delete_backup}`:""}`);setConfirmDelete(false);}
   catch(e){setError(errorMessage(e));}finally{setBusy(false);}
  }
  const openEditor=useRecordEditor();
@@ -39,7 +39,7 @@ export default function RecordEditor({target,products,saved,close}:{target:EditT
    if(kind==='product'){changes.name=name.trim();changes.model_description=model.trim();}
    else{changes.quantity=positiveQuantity(quantity);changes.created_at=new Date(date).toISOString();if(kind==='entry')changes.unit_cost_baisa=toBaisa(price);else{changes.unit_price_baisa=nonSale?0:toBaisa(price);changes.cr_number=nonSale?null:numericReference(cr,'CR Number');}}
    const response=await call<{pre_edit_backup:string}>('edit_record',{_online_state:record._online_state,kind,id:record.id,password,changes});
-   setPassword('');await saved();setResult(`Correction saved. Server recovery backup preserved${response.pre_edit_backup?`: ${response.pre_edit_backup}`:""}`);
+   setPassword('');await saved();setResult(`Correction saved. Recovery backup preserved${response.pre_edit_backup?`: ${response.pre_edit_backup}`:""}`);
   }catch(e){setError(errorMessage(e));}finally{setBusy(false);}
  }
  if(kind==='sale'&&returnMode)return <DamagedReturnEditor line={record} products={products} pending={returnMode===true?undefined:returnMode} saved={saved} close={close}/>;

@@ -766,7 +766,7 @@ fn cr_answer(
     ctx.pending = None;
     let lines = financial_lines(snapshot)?
         .iter()
-        .filter(|s| text(s, "cr_number") == cr)
+        .filter(|s| text(s, "cr_number") == cr || s["warranty"]["original_cr"].as_str()==Some(cr.as_str()))
         .cloned()
         .collect::<Vec<_>>();
     if lines.is_empty() {
@@ -1299,4 +1299,11 @@ mod tests {
         assert!(a["data"]["quantity"].is_null());
         assert!(ctx.selected.is_empty());
     }
+    #[test]
+    fn original_cr_profit_includes_linked_warranty_without_new_sale_revenue(){
+        let data=json!({"products":[],"entries":[],"month":"2026-11","sale_lines":[{"id":"sale","cr_number":"100","product_name":"Battery","quantity":1,"unit_price_baisa":25000,"revenue_baisa":25000,"cost_baisa":5000,"profit_baisa":20000,"purpose":"sale"},{"id":"replacement","cr_number":"200","product_name":"Warranty battery","quantity":1,"unit_price_baisa":0,"revenue_baisa":0,"cost_baisa":2000,"profit_baisa":-2000,"purpose":"replacement","warranty":{"original_cr":"100","new_cr":"200"}}]});
+        let mut ctx=Conversation::default();let original=respond(&plan(Action::Cr,Some("100"),Reference::New),"Show CR 100",&data,&mut ctx).unwrap();assert_eq!(original["data"]["total_profit_baisa"],18000);assert_eq!(original["data"]["total_revenue_baisa"],25000);assert_eq!(original["data"]["total_units_sold"],1);
+        let warranty=respond(&plan(Action::Cr,Some("200"),Reference::New),"Show CR 200",&data,&mut ctx).unwrap();assert_eq!(warranty["data"]["total_profit_baisa"],-2000);assert_eq!(warranty["data"]["total_revenue_baisa"],0);assert_eq!(warranty["data"]["total_units_sold"],0);
+    }
+
 }

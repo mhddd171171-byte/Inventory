@@ -55,3 +55,9 @@ describe('workspace record search',()=>{
     expect(createSearchReportModel(searchSnapshot({...snapshot,products:[],sale_lines:[],entries:[]},emptySearch)).summary).toContain('Sales revenue: OMR 0.000');
   });
 });
+
+it('traces warranty costs to the original CR without counting its paid sale under the new CR',()=>{
+ const original={...line('original',products[0],'100'),quantity:1,revenue_baisa:25000,cost_baisa:5000,profit_baisa:20000,warranties:[{original_cr:'100',new_cr:'200'}]};
+ const replacement={...line('replacement',products[1],'200'),purpose:'replacement' as const,quantity:1,unit_price_baisa:0,revenue_baisa:0,cost_baisa:2000,profit_baisa:-2000,warranty:{original_cr:'100',new_cr:'200',original_line_id:'original'}};
+ const data={...snapshot,sale_lines:[original,replacement]};const root=searchSnapshot(data,{...emptySearch,cr:'100'});expect(root.sales.reduce((sum,l)=>sum+(l.profit_baisa??0),0)).toBe(18000);const next=searchSnapshot(data,{...emptySearch,cr:'200'});expect(next.sales.map(l=>l.id)).toEqual(['replacement']);expect(next.sales[0].revenue_baisa).toBe(0);
+});
