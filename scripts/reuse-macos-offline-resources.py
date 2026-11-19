@@ -88,9 +88,14 @@ for relative, expected in models:
     with path.open("rb") as stream:
         assert hashlib.file_digest(stream, "sha256").hexdigest() == expected
     destination = source / relative
+    assert destination.resolve().is_relative_to(source.resolve())
     if not destination.exists():
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.hardlink_to(path)
+    elif hashlib.sha256(destination.read_bytes()).hexdigest() != expected:
+        # Model metadata is also byte-pinned. Git text normalization must not
+        # substitute a differently encoded vocabulary for the verified asset.
+        shutil.copyfile(path, destination)
 for path in [stage / "ai/llama-server", stage / "voice/runtime/voice-worker"]:
     assert subprocess.check_output(["lipo", "-archs", str(path)], text=True).strip() == "x86_64"
 print("Verified and reused offline Intel AI/voice resources; no model changes.", flush=True)
