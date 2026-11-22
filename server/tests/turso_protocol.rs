@@ -24,7 +24,7 @@ impl Mock {
       if let Some(prior)=step["condition"]["step"].as_u64(){if results.get(prior as usize).is_none_or(Value::is_null){results.push(Value::Null);errors.push(Value::Null);continue;}}
       let sql=step["stmt"]["sql"].as_str().unwrap();let error=sql.starts_with("INSERT INTO stock_entries")&&fail.swap(false,Ordering::SeqCst);
       let outcome=if error{Err(rusqlite::Error::InvalidQuery)}else{execute(conn.as_ref().unwrap(),&step["stmt"])};
-      match outcome{Ok(value)=>{committed|=sql=="COMMIT";results.push(value);errors.push(Value::Null);},Err(_)=>{results.push(Value::Null);errors.push(json!({"code":"SQLITE_CONSTRAINT","message":"Controlled SQL rejection"}));}}
+      match outcome{Ok(value)=>{committed|=sql=="COMMIT"&&conn.as_ref().unwrap().total_changes()>0;results.push(value);errors.push(Value::Null);},Err(_)=>{results.push(Value::Null);errors.push(json!({"code":"SQLITE_CONSTRAINT","message":"Controlled SQL rejection"}));}}
      }
      replies.push(json!({"type":"ok","response":{"type":"batch","result":{"step_results":results,"step_errors":errors}}}));
     }
@@ -86,7 +86,8 @@ fn bulk_restore_keeps_large_inventory_in_one_atomic_publish(){
  original.execute("stock_out",json!({"cr_number":"555","lines":[{"item_code":"1","quantity":1,"unit_price_baisa":1500}]})).unwrap();
  let expected=original.snapshot(&json!({})).unwrap();drop(original);
  let client=cloud.client();let state=good(client.state());cloud.requests.store(0,Ordering::SeqCst);
- good(client.restore(&source,&state,&cloud.folder.path().join("recovery.db")));
+ let mut confirmed=None;good(client.restore_observe(&source,&state,&cloud.folder.path().join("recovery.db"),|store,_|confirmed=Some(store.snapshot(&json!({})).unwrap())));
+ assert_eq!(confirmed.unwrap()["products"],expected["products"],"Confirmed UI data comes from the exact restored store without a second download");
  assert_eq!(cloud.requests.load(Ordering::SeqCst),2,"One cloud snapshot plus one atomic bulk publish; no interactive write stream across requests");
  let actual=good(client.snapshot(json!({})));for field in ["summary","products","entries","sale_lines"]{assert_eq!(actual["result"][field],expected[field],"Bulk restore changed {field}");}
  store::Store::validate_backup(&cloud.folder.path().join("recovery.db")).unwrap();

@@ -1,5 +1,5 @@
 name: Intel Mac online inventory installer
-# 2.1.1 verifies compact atomic uploads for larger backup restores.
+# 2.1.1 verifies compact atomic restores and uses their cloud-confirmed cache.
 on:
   push:
     branches: [feature/shared-online-inventory]

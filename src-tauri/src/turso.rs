@@ -48,7 +48,7 @@ impl Turso {
   let temp=self.temporary()?;let mut store=Store::open(&temp.path().join("working.db")).map_err(rejected)?;
   let mut statements=vec![stmt("BEGIN",vec![]),stmt("SELECT type,name,COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name",vec![])];
   for name in ONLINE_TABLES{statements.push(stmt(&format!("SELECT rowid,* FROM {name} ORDER BY rowid"),vec![]));}statements.push(stmt("SELECT strftime('%Y-%m-%dT%H:%M:%f+04:00','now','+4 hours') AS server_time",vec![]));statements.push(stmt("COMMIT",vec![]));
-  let mut session=self.session();let results=session.batch(statements,true)?;
+  let mut session=self.session();session.timeout=Some(Duration::from_secs(120));let results=session.batch(statements,true)?;
   if schema(&results[1])?!=store.online_schema().map_err(rejected)?{return Err(rejected("The online schema changed unexpectedly. Keep existing backups and contact support.".into()));}
   let mut tables=Vec::new();for (i,name)in ONLINE_TABLES.iter().enumerate(){let r=&results[i+2];let columns=r["cols"].as_array().ok_or_else(||unavailable("Invalid cloud columns."))?.iter().map(|c|c["name"].clone()).collect::<Vec<_>>();tables.push(json!({"name":name,"columns":columns,"rows":r["rows"]}));}
   let dump=json!(tables);store.online_import(&dump).map_err(rejected)?;let time=results[11]["rows"][0][0]["value"].as_str().ok_or_else(||unavailable("Database clock unavailable."))?.to_string();Ok((temp,store,dump,time))
@@ -113,10 +113,13 @@ impl Turso {
  }
  pub fn backup(&self,destination:&Path)->Result<Value>{let (_temp,store,_,_)=self.mirror()?;let state=store.online_metadata().map_err(rejected)?;store.backup(destination).map_err(rejected)?;Ok(json!({"path":destination,"verified":true,"state":state}))}
  pub fn restore(&self,source:&Path,expected:&Value,recovery:&Path)->Result<Value>{
-  let (_temp,mut working,before,_)=self.mirror()?;let current=working.online_metadata().map_err(rejected)?;
+  self.restore_observe(source,expected,recovery,|_,_|{})
+ }
+ pub fn restore_observe(&self,source:&Path,expected:&Value,recovery:&Path,mut confirmed:impl FnMut(&Store,&str))->Result<Value>{
+  let (_temp,mut working,before,timestamp)=self.mirror()?;let current=working.online_metadata().map_err(rejected)?;
   if current!=*expected{return Err(rejected("Inventory changed. Reload before restoring.".into()));}
   working.backup(recovery).map_err(rejected)?;working.restore(source).map_err(rejected)?;let revision=current["revision"].as_u64().and_then(|n|n.checked_add(1)).ok_or_else(||rejected("Invalid revision.".into()))?;working.online_reset_epoch(revision).map_err(rejected)?;
-  let after=working.online_dump().map_err(rejected)?;self.publish(&before,&after,&current)?;Ok(json!({"result":{"restored":true,"pre_restore_backup":recovery},"state":working.online_metadata().map_err(rejected)?}))
+  let after=working.online_dump().map_err(rejected)?;self.publish(&before,&after,&current)?;confirmed(&working,&timestamp);Ok(json!({"result":{"restored":true,"pre_restore_backup":recovery},"state":working.online_metadata().map_err(rejected)?}))
  }
 }
 const REVISION_GUARD:&str="INSERT INTO migration_info(key,value) SELECT 'online_revision',NULL WHERE (SELECT value FROM migration_info WHERE key='online_epoch') IS NOT ?1 OR (SELECT value FROM migration_info WHERE key='online_revision') IS NOT ?2";
