@@ -29,7 +29,7 @@ impl Turso {
  #[cfg(test)] pub fn test_connection(url:String,directory:&Path)->Self{Self{client:Client::builder().timeout(Duration::from_secs(10)).build().unwrap(),url,token:"test-only".into(),directory:directory.into(),recovery:directory.join("recovery-backups")}}
  pub fn recovery_directory(mut self,path:&Path)->Self{self.recovery=path.into();self}
  #[cfg(test)] pub fn explain_revision_guard(&self)->Result<usize>{let mut session=self.session();let results=session.batch(vec![stmt(&format!("EXPLAIN {REVISION_GUARD}"),vec![text("explain-only"),text("0")])],true)?;Ok(results[0]["rows"].as_array().ok_or_else(||unavailable("Invalid query plan."))?.len())}
- fn session(&self)->Session<'_>{Session{owner:self,url:self.url.clone(),baton:None}}
+ fn session(&self)->Session<'_>{Session{owner:self,url:self.url.clone(),baton:None,timeout:None}}
  fn temporary(&self)->Result<tempfile::TempDir>{tempfile::tempdir_in(&self.directory).map_err(|_|unavailable("Cannot create private inventory staging storage."))}
  pub fn initialize(&self)->std::result::Result<Value,String>{
   let temp=self.temporary().map_err(|e|e.message)?;let reference=Store::open(&temp.path().join("reference.db"))?;
@@ -85,6 +85,7 @@ impl Turso {
  }
  fn publish(&self,before:&Value,after:&Value,expected:&Value)->Result<()>{
   let mut session=self.session();
+  session.timeout=Some(Duration::from_secs(120));
   let mut statements=vec![stmt("PRAGMA foreign_keys=ON",vec![]),stmt("BEGIN IMMEDIATE",vec![]),stmt(REVISION_GUARD,vec![text(expected["epoch"].as_str().ok_or_else(||rejected("Invalid epoch.".into()))?),text(&expected["revision"].to_string())]),stmt("PRAGMA defer_foreign_keys=ON",vec![])];
   let guards=reference_guards().map_err(rejected)?;
   for (name,_) in &guards{statements.push(stmt(&format!("DROP TRIGGER \"{name}\""),vec![]));}
@@ -92,13 +93,23 @@ impl Turso {
   for (old,new)in before.as_array().unwrap().iter().zip(after.as_array().unwrap()){
    let name=old["name"].as_str().unwrap();if old["name"]!=new["name"]||old["columns"]!=new["columns"]{return Err(rejected("Inventory staging columns changed unexpectedly.".into()));}
    let old_rows=rows_by_id(old)?;let new_rows=rows_by_id(new)?;
-   for (id,row)in &old_rows{if new_rows.get(id)!=Some(row){statements.push(stmt(&format!("DELETE FROM {name} WHERE rowid=?"),vec![json!({"type":"integer","value":id})]));}}
-   let columns=new["columns"].as_array().unwrap().iter().map(|c|format!("\"{}\"",c.as_str().unwrap().replace('"',"\"\""))).collect::<Vec<_>>();let sql=format!("INSERT INTO {name}({}) VALUES({})",columns.join(","),vec!["?";columns.len()].join(","));
-   for (id,row)in new_rows{if old_rows.get(&id)!=Some(&row){inserts.push(stmt(&sql,row.as_array().unwrap().clone()));}}
+   let removed=old_rows.iter().filter(|(id,row)|new_rows.get(*id)!=Some(*row)).map(|(id,_)|json!({"type":"integer","value":id})).collect::<Vec<_>>();
+   for ids in removed.chunks(256){statements.push(stmt(&format!("DELETE FROM {name} WHERE rowid IN ({})",vec!["?";ids.len()].join(",")),ids.to_vec()));}
+   let columns=new["columns"].as_array().unwrap().iter().map(|c|format!("\"{}\"",c.as_str().unwrap().replace('"',"\"\""))).collect::<Vec<_>>();
+   let changed=new_rows.iter().filter(|(id,row)|old_rows.get(*id)!=Some(*row)).map(|(_,row)|row.as_array().unwrap()).collect::<Vec<_>>();
+   // Bound variables below the portable 999-variable ceiling. One SQL INSERT
+   // carries several rows, avoiding thousands of network/proxy executions.
+   let group=(900/columns.len()).clamp(1,64);let values=format!("({})",vec!["?";columns.len()].join(","));
+   for rows in changed.chunks(group){let sql=format!("INSERT INTO {name}({}) VALUES{}",columns.join(","),vec![values.as_str();rows.len()].join(","));inserts.push(stmt(&sql,rows.iter().flat_map(|row|row.iter().cloned()).collect()));}
   }
   statements.extend(inserts);for (_,sql)in guards{statements.push(stmt(&sql,vec![]));}
   // Chunks retain the same transaction. No COMMIT is sent after a failed chunk.
-  statements.push(stmt("COMMIT",vec![]));let chunks=statements.chunks(200).collect::<Vec<_>>();for (index,chunk)in chunks.iter().enumerate(){session.batch(chunk.to_vec(),index+1==chunks.len())?;}Ok(())
+  statements.push(stmt("COMMIT",vec![]));
+  // Keep typical restores in one atomic HTTP batch, avoiding idle expiry
+  // between requests. Larger imports retain the same guarded transaction.
+  let mut chunks=Vec::new();let mut chunk=Vec::new();let mut bytes=0;
+  for statement in statements{let size=statement.to_string().len();if size>8*1024*1024{return Err(rejected("An inventory row exceeds the supported upload size.".into()));}if !chunk.is_empty()&&(chunk.len()>=128||bytes+size>8*1024*1024){chunks.push(std::mem::take(&mut chunk));bytes=0;}chunk.push(statement);bytes+=size;}
+  if !chunk.is_empty(){chunks.push(chunk);}let count=chunks.len();for (index,chunk)in chunks.into_iter().enumerate(){session.batch(chunk,index+1==count)?;}Ok(())
  }
  pub fn backup(&self,destination:&Path)->Result<Value>{let (_temp,store,_,_)=self.mirror()?;let state=store.online_metadata().map_err(rejected)?;store.backup(destination).map_err(rejected)?;Ok(json!({"path":destination,"verified":true,"state":state}))}
  pub fn restore(&self,source:&Path,expected:&Value,recovery:&Path)->Result<Value>{
@@ -117,14 +128,15 @@ fn schema(result:&Value)->Result<Value>{let rows=result["rows"].as_array().ok_or
 fn rows_by_id(table:&Value)->Result<BTreeMap<String,Value>>{let mut result=BTreeMap::new();for row in table["rows"].as_array().ok_or_else(||unavailable("Invalid cloud rows."))?{let id=row[0]["value"].as_str().ok_or_else(||unavailable("Invalid cloud row identifier."))?;id.parse::<i64>().map_err(|_|unavailable("Invalid cloud row identifier."))?;if result.insert(id.to_string(),row.clone()).is_some(){return Err(unavailable("Duplicate cloud row identifier."));}}Ok(result)}
 fn receipt_result(receipt:&Value,fingerprint:&str)->Result<Value>{if receipt["request"]!=fingerprint{return Err(rejected("Operation identifier was already used for another request.".into()));}Ok(receipt["response"].clone())}
 fn reference_guards()->std::result::Result<Vec<(String,String)>,String>{let conn=rusqlite::Connection::open_in_memory().map_err(|e|e.to_string())?;conn.execute_batch(include_str!("../migrations/003_dispositions.sql")).map_err(|e|e.to_string())?;let mut query=conn.prepare("SELECT name,sql FROM sqlite_master WHERE type='trigger' ORDER BY name").map_err(|e|e.to_string())?;let rows=query.query_map([],|r|Ok((r.get(0)?,r.get(1)?))).map_err(|e|e.to_string())?.collect::<std::result::Result<Vec<_>,_>>().map_err(|e|e.to_string())?;Ok(rows)}
-struct Session<'a>{owner:&'a Turso,url:String,baton:Option<String>}
+struct Session<'a>{owner:&'a Turso,url:String,baton:Option<String>,timeout:Option<Duration>}
 impl Session<'_>{
  fn batch(&mut self,statements:Vec<Value>,close:bool)->Result<Vec<Value>>{
   let guarded=statements.get(2).is_some_and(|s|s["sql"]==REVISION_GUARD);
   let steps=statements.into_iter().enumerate().map(|(i,s)|{let mut step=json!({"stmt":s});if i>0{step["condition"]=json!({"type":"ok","step":i-1});}step}).collect::<Vec<_>>();let mut requests=vec![json!({"type":"batch","batch":{"steps":steps}})];if close{requests.push(json!({"type":"close"}));}
   let request=json!({"baton":self.baton,"requests":requests});
   if request.to_string().len()>16*1024*1024{return Err(rejected("Inventory transaction exceeds the supported request size.".into()));}
-  let response=self.owner.client.post(format!("{}/v2/pipeline",self.url)).bearer_auth(&self.owner.token).json(&request).send().map_err(|_|unavailable("Turso connection interrupted. Refresh to confirm the operation before retrying."))?;
+  let mut sending=self.owner.client.post(format!("{}/v2/pipeline",self.url)).bearer_auth(&self.owner.token).json(&request);if let Some(timeout)=self.timeout{sending=sending.timeout(timeout);}
+  let response=sending.send().map_err(|e|unavailable(if e.is_timeout(){"Turso request timed out. Refresh to confirm the operation before retrying."}else{"Turso connection interrupted. Refresh to confirm the operation before retrying."}))?;
   if !response.status().is_success(){return Err(unavailable(&format!("Turso connection rejected (HTTP {}). Check the connection key and database availability.",response.status().as_u16())));}
   let mut bytes=Vec::new();response.take(32*1024*1024+1).read_to_end(&mut bytes).map_err(|_|unavailable("Turso response was interrupted."))?;if bytes.len()>32*1024*1024{return Err(unavailable("Turso response exceeds the supported size."));}
   let value:Value=serde_json::from_slice(&bytes).map_err(|_|unavailable("Invalid Turso response."))?;
@@ -135,4 +147,4 @@ impl Session<'_>{
   let values=result["step_results"].as_array().ok_or_else(||unavailable("Invalid Turso batch response."))?;if values.iter().any(Value::is_null){return Err(unavailable("Turso did not complete the database transaction."));}Ok(values.clone())
  }
 }
-impl Drop for Session<'_>{fn drop(&mut self){if let Some(baton)=self.baton.take(){let _=self.owner.client.post(format!("{}/v2/pipeline",self.url)).bearer_auth(&self.owner.token).json(&json!({"baton":baton,"requests":[{"type":"close"}]})).send();}}}
+impl Drop for Session<'_>{fn drop(&mut self){if let Some(baton)=self.baton.take(){let _=self.owner.client.post(format!("{}/v2/pipeline",self.url)).bearer_auth(&self.owner.token).timeout(Duration::from_secs(3)).json(&json!({"baton":baton,"requests":[{"type":"close"}]})).send();}}}

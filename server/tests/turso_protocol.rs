@@ -66,3 +66,28 @@ fn request(state:&Value,action:&str,payload:Value)->Value{json!({"operation_id":
  let cloud=Mock::new();let client=cloud.client();let req=request(&good(client.state()),"stock_entry",entry());cloud.drop_commit.store(true,Ordering::SeqCst);let mut premature=false;assert!(client.mutate_observe(&req,None,|_,_|premature=true).is_err());assert!(!premature);
  let first=good(client.mutate(&req));let second=good(client.mutate(&req));assert_eq!(first,second);assert_eq!(good(client.snapshot(json!({})))["result"]["summary"]["total_units"],1);
 }
+#[test]
+#[ignore="Uses only a private local mock and an explicitly supplied customer backup; no cloud access"]
+fn restore_supplied_backup_through_chunked_protocol(){
+ let source=std::path::PathBuf::from(std::env::var_os("INVENTORY_RESTORE_FIXTURE").expect("Set a local backup path"));
+ store::Store::validate_backup(&source).unwrap();
+ let cloud=Mock::new();let client=cloud.client();let state=good(client.state());
+ good(client.restore(&source,&state,&cloud.folder.path().join("before-restore.db")));
+ let snapshot=good(client.snapshot(json!({})));let actual=&snapshot["result"];
+ let mut original=store::Store::open(&cloud.folder.path().join("comparison.db")).unwrap();original.restore(&source).unwrap();
+ let original=original.snapshot(&json!({})).unwrap();
+ for field in ["summary","products","entries","sale_lines"]{assert_eq!(actual[field],original[field],"Restored data must match exactly: {field}");}
+ println!("Local-only restore matched the supplied backup across all business views; HTTP requests: {}",cloud.requests.load(Ordering::SeqCst));
+}
+#[test]
+fn bulk_restore_keeps_large_inventory_in_one_atomic_publish(){
+ let cloud=Mock::new();let source=cloud.folder.path().join("large-source.db");let mut original=store::Store::open(&source).unwrap();
+ for n in 1..=650{original.execute("stock_entry",json!({"item_code":n.to_string(),"name":format!("Screen شاشة {n}"),"model_description":"Synthetic restore regression fixture","quantity":3,"unit_cost_baisa":1000})).unwrap();}
+ original.execute("stock_out",json!({"cr_number":"555","lines":[{"item_code":"1","quantity":1,"unit_price_baisa":1500}]})).unwrap();
+ let expected=original.snapshot(&json!({})).unwrap();drop(original);
+ let client=cloud.client();let state=good(client.state());cloud.requests.store(0,Ordering::SeqCst);
+ good(client.restore(&source,&state,&cloud.folder.path().join("recovery.db")));
+ assert_eq!(cloud.requests.load(Ordering::SeqCst),2,"One cloud snapshot plus one atomic bulk publish; no interactive write stream across requests");
+ let actual=good(client.snapshot(json!({})));for field in ["summary","products","entries","sale_lines"]{assert_eq!(actual["result"][field],expected[field],"Bulk restore changed {field}");}
+ store::Store::validate_backup(&cloud.folder.path().join("recovery.db")).unwrap();
+}
