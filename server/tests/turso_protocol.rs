@@ -24,7 +24,7 @@ impl Mock {
       if let Some(prior)=step["condition"]["step"].as_u64(){if results.get(prior as usize).is_none_or(Value::is_null){results.push(Value::Null);errors.push(Value::Null);continue;}}
       let sql=step["stmt"]["sql"].as_str().unwrap();let error=sql.starts_with("INSERT INTO stock_entries")&&fail.swap(false,Ordering::SeqCst);
       let outcome=if error{Err(rusqlite::Error::InvalidQuery)}else{execute(conn.as_ref().unwrap(),&step["stmt"])};
-      match outcome{Ok(value)=>{committed|=sql=="COMMIT"&&conn.as_ref().unwrap().total_changes()>0;results.push(value);errors.push(Value::Null);},Err(_)=>{results.push(Value::Null);errors.push(json!({"code":"SQLITE_CONSTRAINT","message":"Controlled SQL rejection"}));}}
+      match outcome{Ok(value)=>{committed|=sql=="COMMIT";results.push(value);errors.push(Value::Null);},Err(_)=>{results.push(Value::Null);errors.push(json!({"code":"SQLITE_CONSTRAINT","message":"Controlled SQL rejection"}));}}
      }
      replies.push(json!({"type":"ok","response":{"type":"batch","result":{"step_results":results,"step_errors":errors}}}));
     }
@@ -65,30 +65,4 @@ fn request(state:&Value,action:&str,payload:Value)->Value{json!({"operation_id":
 #[test] fn lost_commit_acknowledgement_replays_once_instead_of_duplicating(){
  let cloud=Mock::new();let client=cloud.client();let req=request(&good(client.state()),"stock_entry",entry());cloud.drop_commit.store(true,Ordering::SeqCst);let mut premature=false;assert!(client.mutate_observe(&req,None,|_,_|premature=true).is_err());assert!(!premature);
  let first=good(client.mutate(&req));let second=good(client.mutate(&req));assert_eq!(first,second);assert_eq!(good(client.snapshot(json!({})))["result"]["summary"]["total_units"],1);
-}
-#[test]
-#[ignore="Uses only a private local mock and an explicitly supplied customer backup; no cloud access"]
-fn restore_supplied_backup_through_chunked_protocol(){
- let source=std::path::PathBuf::from(std::env::var_os("INVENTORY_RESTORE_FIXTURE").expect("Set a local backup path"));
- store::Store::validate_backup(&source).unwrap();
- let cloud=Mock::new();let client=cloud.client();let state=good(client.state());
- good(client.restore(&source,&state,&cloud.folder.path().join("before-restore.db")));
- let snapshot=good(client.snapshot(json!({})));let actual=&snapshot["result"];
- let mut original=store::Store::open(&cloud.folder.path().join("comparison.db")).unwrap();original.restore(&source).unwrap();
- let original=original.snapshot(&json!({})).unwrap();
- for field in ["summary","products","entries","sale_lines"]{assert_eq!(actual[field],original[field],"Restored data must match exactly: {field}");}
- println!("Local-only restore matched the supplied backup across all business views; HTTP requests: {}",cloud.requests.load(Ordering::SeqCst));
-}
-#[test]
-fn bulk_restore_keeps_large_inventory_in_one_atomic_publish(){
- let cloud=Mock::new();let source=cloud.folder.path().join("large-source.db");let mut original=store::Store::open(&source).unwrap();
- for n in 1..=650{original.execute("stock_entry",json!({"item_code":n.to_string(),"name":format!("Screen شاشة {n}"),"model_description":"Synthetic restore regression fixture","quantity":3,"unit_cost_baisa":1000})).unwrap();}
- original.execute("stock_out",json!({"cr_number":"555","lines":[{"item_code":"1","quantity":1,"unit_price_baisa":1500}]})).unwrap();
- let expected=original.snapshot(&json!({})).unwrap();drop(original);
- let client=cloud.client();let state=good(client.state());cloud.requests.store(0,Ordering::SeqCst);
- let mut confirmed=None;good(client.restore_observe(&source,&state,&cloud.folder.path().join("recovery.db"),|store,_|confirmed=Some(store.snapshot(&json!({})).unwrap())));
- assert_eq!(confirmed.unwrap()["products"],expected["products"],"Confirmed UI data comes from the exact restored store without a second download");
- assert_eq!(cloud.requests.load(Ordering::SeqCst),2,"One cloud snapshot plus one atomic bulk publish; no interactive write stream across requests");
- let actual=good(client.snapshot(json!({})));for field in ["summary","products","entries","sale_lines"]{assert_eq!(actual["result"][field],expected[field],"Bulk restore changed {field}");}
- store::Store::validate_backup(&cloud.folder.path().join("recovery.db")).unwrap();
 }

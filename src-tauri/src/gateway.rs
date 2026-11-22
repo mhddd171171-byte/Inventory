@@ -119,7 +119,7 @@ impl Gateway{
   if self.directory.join("pending-online-operation.json").exists(){return Err("Confirm the pending save before restoring.".into());}
   let metadata=fs::metadata(source).map_err(|e|e.to_string())?;if metadata.len()>32*1024*1024{return Err("Database exceeds the current upload limit.".into());}
   let state=self.state.clone().ok_or("Load inventory before restoring.")?;
-  if let Some(t)=self.turso()?{fs::create_dir_all(&self.backups).map_err(|e|e.to_string())?;let recovery=self.backups.join(format!("before-online-restore-{}.db",Uuid::new_v4()));self.last_commit=None;let value=t.restore_observe(source,&state,&recovery,|store,time|self.cache_from_store(store,&json!({"month":&time[..7]}),true)).map_err(|e|e.message)?;self.state=Some(value["state"].clone());if self.last_commit.is_none(){self.cached_snapshot=None;}let mut result=value["result"].clone();if !self.warning.is_empty(){result["backup_warning"]=json!(self.warning);}return Ok(result);}
+  if let Some(t)=self.turso()?{fs::create_dir_all(&self.backups).map_err(|e|e.to_string())?;let recovery=self.backups.join(format!("before-online-restore-{}.db",Uuid::new_v4()));let value=t.restore(source,&state,&recovery).map_err(|e|e.message)?;self.state=Some(value["state"].clone());self.cached_snapshot=None;self.capture_if_changed();return Ok(value["result"].clone());}
   let bytes=fs::read(source).map_err(|e|e.to_string())?;
   let value=Self::decode(self.request(reqwest::Method::POST,"/v1/restore")?.header("X-Inventory-State",state.to_string()).body(bytes).send().map_err(|_|"Restore confirmation was interrupted. Refresh to inspect the shared database before attempting restore again.")?)?;
   self.state=Some(value["state"].clone());self.capture_if_changed();Ok(value["result"].clone())
