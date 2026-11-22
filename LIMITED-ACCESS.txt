@@ -1,6 +1,6 @@
-INVENTORY MANAGER - LIMITED ACCESS 1.0.0 (WINDOWS ONLY)
+INVENTORY MANAGER - LIMITED ACCESS 1.0.1 (WINDOWS ONLY)
 
-Install: Inventory Manager Limited Access_1.0.0_x64-setup.exe
+Install: Inventory Manager Limited Access_1.0.1_x64-setup.exe
 Run this EXE on the staff computer and follow the installer.
 Windows 10/11 x64. No IDE, Python, Ollama, AI or voice setup is required.
 The offline Microsoft WebView2 installer is included when needed.
@@ -25,7 +25,7 @@ HTTP reader accepts only fixed whitelisted SELECT queries and read transactions.
 
 EXISTING DATABASE AND TOKEN
 Use the SAME online database and SAME token as the full application.
-On each new staff computer, open Connection, enter the existing URL and private
+On each new staff computer, open Settings > Configure connection, enter the existing URL and private
 token, then Connect and save once. Windows Credential Manager stores the key.
 The installer does not contain your private token. Later launches reuse it.
 No new database, account, token or schema change is required.
@@ -58,3 +58,7 @@ file hashes. 5 native tests and 33 frontend tests passed.
 Not tested: physical staff computers or a fully disconnected network walkthrough.
 An optional unreachable-proxy offline simulation was blocked by automatic
 approval review, which stated only 'blocked by policy'; it was not performed.
+
+APPEARANCE
+Open Settings > Appearance > Theme and select Follow system, Light or Dark.
+The choice is saved on this computer and restored when the application opens.

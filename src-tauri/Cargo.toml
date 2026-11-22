@@ -1,6 +1,6 @@
 [package]
 name = "inventory-manager-limited-access"
-version = "1.0.0"
+version = "1.0.1"
 description = "Read-only staff product and CR search viewer"
 edition = "2021"
 license = "MIT"
