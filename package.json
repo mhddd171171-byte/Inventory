@@ -1,6 +1,6 @@
 {
-  "name": "inventory-manager",
-  "version": "2.1.0",
+  "name": "inventory-manager-limited-access",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {

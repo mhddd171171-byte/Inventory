@@ -1,12 +1,12 @@
 [package]
-name = "inventory-manager"
-version = "2.1.0"
-description = "Offline repair-center inventory, CR sales and local voice assistant"
+name = "inventory-manager-limited-access"
+version = "1.0.0"
+description = "Read-only staff product and CR search viewer"
 edition = "2021"
 license = "MIT"
 
 [lib]
-name = "inventory_manager_lib"
+name = "inventory_manager_limited_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 doctest = false
 

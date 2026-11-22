@@ -28,3 +28,6 @@ server/target/
 server/data/
 server/.env
 .env.local
+
+# Private owner data used only in the Limited Access installer
+src-tauri/resources/limited/*.json

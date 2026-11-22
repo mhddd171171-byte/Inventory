@@ -1,2 +1,2 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-fn main() { inventory_manager_lib::run(); }
+fn main(){inventory_manager_limited_lib::run();}

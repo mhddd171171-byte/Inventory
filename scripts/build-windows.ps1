@@ -2,6 +2,7 @@ param([switch]$SkipAppBuild)
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $repoRoot
+if(-not(Test-Path -LiteralPath (Join-Path $repoRoot 'src-tauri/resources/limited/seed.json'))){throw 'Prepare the sanitized owner backup with scripts/prepare-limited-seed.py before packaging Limited Access.'}
 if(-not $SkipAppBuild){
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'desktop.ps1') build-app
   if($LASTEXITCODE -ne 0){throw 'Desktop compilation failed.'}
@@ -15,4 +16,4 @@ if(-not $webView){throw 'The offline Microsoft WebView2 x64 installer is missing
 $releaseVersion=(Get-Content -LiteralPath (Join-Path $repoRoot 'package.json') -Raw | ConvertFrom-Json).version
 & $compiler "/DReleaseVersion=$releaseVersion" "/DRepoRoot=$repoRoot" "/DWebViewInstaller=$($webView.FullName)" (Join-Path $repoRoot 'src-tauri/installer/windows.iss')
 if($LASTEXITCODE -ne 0){throw 'Offline installer compilation failed.'}
-Write-Output (Join-Path $repoRoot "deliverables/Inventory Manager_${releaseVersion}_x64-setup.exe")
+Write-Output (Join-Path $repoRoot "deliverables/Inventory Manager Limited Access_${releaseVersion}_x64-setup.exe")

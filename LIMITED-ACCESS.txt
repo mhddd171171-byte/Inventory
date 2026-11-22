@@ -1,0 +1,60 @@
+INVENTORY MANAGER - LIMITED ACCESS 1.0.0 (WINDOWS ONLY)
+
+Install: Inventory Manager Limited Access_1.0.0_x64-setup.exe
+Run this EXE on the staff computer and follow the installer.
+Windows 10/11 x64. No IDE, Python, Ollama, AI or voice setup is required.
+The offline Microsoft WebView2 installer is included when needed.
+
+This is a separate application. Its installation, shortcuts, Windows uninstall
+entry, app identity, saved connection and local data folder are separate from
+the existing full Inventory Manager. Do not uninstall the existing full version.
+
+WORKSPACE
+Products: Item Code, Product / Model, Available quantity and Stock Status.
+Search sales: Date / Time, CR Number, Product, Quantity, Selling Price / Unit.
+Search incoming stock: Date / Time, Item Code, Product, Received and Remaining.
+Purchase values, buying costs, sales totals and gross profits are omitted.
+Per-unit selling price remains visible as one of the requested first five fields.
+Search supports partial names/models, English/Arabic, CR, Item Code and dates.
+Previous/Next provides access to all matching records.
+
+Staff can view and search only. No Add, Edit, Delete, Stock In/Out, return,
+warranty, import, restore, report export, AI or voice commands are available.
+Inventory mutations are absent from the compiled native application, and its
+HTTP reader accepts only fixed whitelisted SELECT queries and read transactions.
+
+EXISTING DATABASE AND TOKEN
+Use the SAME online database and SAME token as the full application.
+On each new staff computer, open Connection, enter the existing URL and private
+token, then Connect and save once. Windows Credential Manager stores the key.
+The installer does not contain your private token. Later launches reuse it.
+No new database, account, token or schema change is required.
+
+Read-only enforcement applies to this app. The existing token retains its
+original Turso permissions; this app does not change those permissions or
+restrict what a different program could do using that token. Keep it private.
+
+STARTUP BACKUP AND AUTOMATIC LOCAL COPIES
+A sanitized display copy from the supplied 22 November backup is already
+included: 603 products and the permitted history fields. No manual import is
+needed. It never uploads, merges or replaces the shared online database.
+After connecting, the app reads current online records and refreshes while open.
+When disconnected it labels the saved display copy and its last-updated time.
+Only permitted display fields are downloaded or saved; hidden financial fields
+and the full original .db are not bundled in this staff installer.
+
+Automatic read-only JSON snapshots keep up to 30 versions under:
+%LOCALAPPDATA%\com.repaircenter.inventorymanager.limitedaccess\data\backups
+These limited copies cannot replace a full inventory-ledger backup. Continue
+creating full recovery backups from the original full-access application.
+
+TESTING
+Verified: Windows installation and launch beside the existing version; saved
+connection across update/restart; live reads with the existing database/token;
+only two workspace pages; required columns; CR search; pagination; native write,
+restore, export and AI command rejection; filtered cache/backup contents; no AI
+models/runtimes installed; and unchanged full-version program/config/database
+file hashes. 5 native tests and 33 frontend tests passed.
+Not tested: physical staff computers or a fully disconnected network walkthrough.
+An optional unreachable-proxy offline simulation was blocked by automatic
+approval review, which stated only 'blocked by policy'; it was not performed.
